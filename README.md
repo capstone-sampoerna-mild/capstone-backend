@@ -131,15 +131,18 @@ Variabel penting di `.env`:
 ## Troubleshooting Singkat
 
 1. `Failed to fetch` di Swagger:
+
 - Pastikan buka URL dengan format `http://<IP-LAN>:5000/api-docs/`
 - Hard refresh browser (`Ctrl+Shift+R`)
 - Pastikan server Swagger memakai dropdown server `/`
 
 2. Chat stream tidak merespons:
+
 - Cek apakah FastAPI aktif di `127.0.0.1:8001`
 - Cek nilai `FASTAPI_BASE_URL` dan `FASTAPI_CHAT_STREAM_PATH`
 
 3. Port sudah dipakai:
+
 - Hentikan proses lama lalu jalankan ulang `npm run dev`
 
 ## Lisensi
