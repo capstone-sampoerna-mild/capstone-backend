@@ -64,6 +64,41 @@ const options = {
           },
           required: ['status', 'message', 'timestamp'],
         },
+        ChatRequest: {
+          type: 'object',
+          properties: {
+            prompt: {
+              type: 'string',
+              example: 'Buat roadmap belajar agar saya bisa jadi ML Engineer dalam 6 bulan.',
+            },
+          },
+          required: ['prompt'],
+        },
+        ValidationErrorResponse: {
+          type: 'object',
+          properties: {
+            detail: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  loc: {
+                    type: 'array',
+                    items: {
+                      oneOf: [{ type: 'string' }, { type: 'integer' }],
+                    },
+                  },
+                  msg: {
+                    type: 'string',
+                  },
+                  type: {
+                    type: 'string',
+                  },
+                },
+              },
+            },
+          },
+        },
       },
     },
   },
