@@ -1,5 +1,6 @@
 import express from 'express';
 import helmet from 'helmet';
+import os from 'os';
 import swaggerUi from 'swagger-ui-express';
 import { config } from './config/environment.js';
 import { swaggerSpec } from './config/swagger.js';
@@ -39,7 +40,18 @@ app.use(requestLogger);
  * API Documentation
  * Swagger UI for API documentation and testing
  */
-app.use('/api-docs', swaggerUi.serve, swaggerUi.setup(swaggerSpec));
+app.use(
+  '/api-docs',
+  (req, res, next) => {
+    res.setHeader(
+      'Content-Security-Policy',
+      "default-src 'self'; img-src 'self' data:; style-src 'self' 'unsafe-inline'; script-src 'self' 'unsafe-inline'"
+    );
+    next();
+  },
+  swaggerUi.serve,
+  swaggerUi.setup(swaggerSpec)
+);
 
 /**
  * API Routes
@@ -63,9 +75,20 @@ app.use(errorHandler);
  * Server Initialization
  * Start the Express server on the configured port
  */
-const server = app.listen(config.port, () => {
+const server = app.listen(config.port, config.host, () => {
+  const lanIps = Object.values(os.networkInterfaces())
+    .flat()
+    .filter((iface) => iface && iface.family === 'IPv4' && !iface.internal)
+    .map((iface) => iface.address);
+
   console.log(`\n🚀 Server running on http://localhost:${config.port}`);
+  if (lanIps.length > 0) {
+    console.log(`🌐 LAN Access: http://${lanIps[0]}:${config.port}`);
+  }
   console.log(`📚 API Documentation: http://localhost:${config.port}/api-docs`);
+  if (lanIps.length > 0) {
+    console.log(`📚 LAN Docs: http://${lanIps[0]}:${config.port}/api-docs`);
+  }
   console.log(`🌍 Environment: ${config.nodeEnv}`);
   console.log(`📦 API Version: ${config.apiVersion}\n`);
 });
