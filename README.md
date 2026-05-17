@@ -1,54 +1,16 @@
 # API Gateway Capstone Backend
 
-Backend ini adalah API Gateway berbasis Express.js untuk proyek **AI-Driven Career Pathing & Skills Gap Analyzer**. Gateway bertugas menangani routing, dokumentasi API, keamanan dasar, serta proxy ke service FastAPI.
+Backend ini adalah API Gateway berbasis Express.js untuk kebutuhan capstone. Fungsinya sebagai pintu masuk utama untuk frontend, menangani dokumentasi API, keamanan dasar, login Google via Firebase, dan proxy ke service FastAPI.
 
-## Ringkasan Fitur Terbaru
+## Fitur
 
-- Struktur modular: `routes`, `controllers`, `middlewares`, `config`
-- Dokumentasi API otomatis dengan Swagger (`swagger-jsdoc` + `swagger-ui-express`)
-- Endpoint health check: `GET /api/v1/health`
-- Integrasi FastAPI chat stream: `POST /api/v1/chat/ai/stream`
-- Login Google via Firebase (tanpa Admin SDK): `POST /api/v1/auth/google`
-- Integrasi AI service job role: `POST /api/v1/job-role/recommend`
-- Integrasi AI service dokumen: `POST /api/v1/document/upload`
-- Siap akses LAN (1 jaringan) dengan host `0.0.0.0`
-- Pengamanan dasar dengan `helmet`, `cors`, dan `dotenv`
-- Error handling terpusat dan logging request
+- Swagger docs di `/api-docs`
+- Health check untuk monitoring
+- Login Google via Firebase (verifikasi ID token)
+- Proxy endpoint FastAPI: chat stream, job role, dan upload dokumen
+- CORS, helmet, logging, dan error handling terpusat
 
-## Struktur Proyek
-
-```text
-Backend/
-├── src/
-│   ├── config/
-│   │   ├── environment.js
-│   │   └── swagger.js
-│   ├── controllers/
-│   │   ├── healthController.js
-│   │   └── chatController.js
-│   ├── middlewares/
-│   │   ├── cors.js
-│   │   ├── errorHandler.js
-│   │   └── requestLogger.js
-│   ├── routes/
-│   │   ├── index.js
-│   │   └── v1/
-│   │       ├── index.js
-│   │       ├── healthRoutes.js
-│   │       └── chatRoutes.js
-│   └── index.js
-├── .env
-├── .env.example
-├── package.json
-└── README.md
-```
-
-## Prasyarat
-
-- Node.js 16+
-- npm
-
-## Instalasi
+## Quick Start
 
 1. Install dependency:
 
@@ -56,7 +18,7 @@ Backend/
 npm install
 ```
 
-2. Siapkan environment file:
+2. Siapkan env:
 
 ```bash
 cp .env.example .env
@@ -68,40 +30,31 @@ cp .env.example .env
 npm run dev
 ```
 
-## Akses Aplikasi
+## Akses
 
-- Lokal:
-  - Swagger: `http://localhost:5000/api-docs/`
-  - Health: `http://localhost:5000/api/v1/health`
+- Swagger: `http://localhost:5000/api-docs/`
+- Health: `http://localhost:5000/api/v1/health`
 
-- LAN (1 jaringan):
-  - Swagger: `http://<IP-LAN-ANDA>:5000/api-docs/`
-  - Health: `http://<IP-LAN-ANDA>:5000/api/v1/health`
+Jika di LAN, ganti `localhost` dengan IP mesin.
 
-Contoh:
+## Daftar Endpoint (v1)
 
-`http://192.168.18.4:5000/api-docs/`
+| Method | Path                                       | Keterangan                                    |
+| ------ | ------------------------------------------ | --------------------------------------------- |
+| GET    | `/api/v1/health`                           | Status server dan info runtime                |
+| POST   | `/api/v1/auth/google`                      | Verifikasi login Google via Firebase ID token |
+| POST   | `/api/v1/chat/ai/stream`                   | Proxy chat stream (SSE) ke FastAPI            |
+| POST   | `/api/v1/job-role/recommend`               | Rekomendasi job role (model lokal)            |
+| POST   | `/api/v1/job-role/recommend/gemini`        | Rekomendasi job role via Gemini               |
+| POST   | `/api/v1/job-role/recommend/stream`        | Stream rekomendasi job role (SSE)             |
+| POST   | `/api/v1/job-role/recommend/gemini/stream` | Stream rekomendasi job role via Gemini (SSE)  |
+| POST   | `/api/v1/document/upload`                  | Upload PDF untuk processing                   |
 
-## Endpoint Utama
+## Login Google (Firebase)
 
-1. `GET /api/v1/health`
-2. `POST /api/v1/chat/ai/stream`
-3. `POST /api/v1/auth/google`
-4. `POST /api/v1/job-role/recommend`
-5. `POST /api/v1/job-role/recommend/gemini`
-6. `POST /api/v1/job-role/recommend/stream`
-7. `POST /api/v1/job-role/recommend/gemini/stream`
-8. `POST /api/v1/document/upload`
+Backend ini tidak memakai Admin SDK. Frontend harus login pakai Firebase Auth (Google Sign-In), ambil `idToken`, lalu kirim ke backend.
 
-Contoh request chat stream:
-
-```bash
-curl -N -X POST http://localhost:5000/api/v1/chat/ai/stream \
-  -H "Content-Type: application/json" \
-  -d '{"prompt":"Buat roadmap belajar data analyst 3 bulan"}'
-```
-
-Contoh request login Google (Firebase ID token):
+Request:
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/auth/google \
@@ -109,7 +62,21 @@ curl -X POST http://localhost:5000/api/v1/auth/google \
   -d '{"idToken":"<FIREBASE_ID_TOKEN>"}'
 ```
 
-Contoh request job role rekomendasi:
+Respons berisi data user yang sudah diverifikasi dan metadata Firebase.
+
+## Chat Stream
+
+Proxy ke FastAPI chat stream, format SSE mengikuti upstream.
+
+```bash
+curl -N -X POST http://localhost:5000/api/v1/chat/ai/stream \
+  -H "Content-Type: application/json" \
+  -d '{"prompt":"Buat roadmap belajar data analyst 3 bulan"}'
+```
+
+## Job Role Recommendation
+
+Request memakai `name` (alias `nama` juga diterima) dan `skillset`.
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/job-role/recommend \
@@ -117,24 +84,16 @@ curl -X POST http://localhost:5000/api/v1/job-role/recommend \
   -d '{"name":"Budi","skillset":["React","NextJS"]}'
 ```
 
-Contoh upload dokumen (PDF):
+Endpoint stream (`/stream`) mengirim SSE dari upstream.
+
+## Upload Dokumen (PDF)
+
+Field multipart harus bernama `file`. Hanya PDF yang diterima oleh service FastAPI.
 
 ```bash
 curl -X POST http://localhost:5000/api/v1/document/upload \
   -F "file=@/path/to/document.pdf"
 ```
-
-## Integrasi FastAPI
-
-Gateway mem-proxy request ke FastAPI endpoint chat stream.
-
-Konfigurasi default:
-
-- `FASTAPI_BASE_URL=http://127.0.0.1:8001`
-- `FASTAPI_CHAT_STREAM_PATH=/chat-ai/stream`
-- `FASTAPI_TIMEOUT_MS=60000`
-
-Pastikan service FastAPI Anda aktif sebelum mencoba endpoint chat stream dari Swagger.
 
 ## Konfigurasi Environment
 
@@ -156,41 +115,18 @@ Variabel penting di `.env`:
 - `FIREBASE_PROJECT_ID=your-firebase-project-id`
 
 Catatan: repo AI saat ini memakai prefix ganda pada beberapa route (contoh `/job-role/job-role/recommend`).
-Jika service FastAPI Anda memakai path yang lebih pendek (misal `/job-role/recommend`), cukup ubah nilai
-`FASTAPI_*_PATH` di `.env`.
+Jika FastAPI Anda memakai path yang lebih pendek (misal `/job-role/recommend`), cukup ubah nilai `FASTAPI_*_PATH` di `.env`.
 
 ## Script NPM
 
-- `npm run dev`: Menjalankan server development (nodemon)
-- `npm start`: Menjalankan server production mode
-
-## Catatan Swagger dan CORS
-
-- Swagger dikonfigurasi agar bisa diakses dari LAN.
-- Server URL pada Swagger menggunakan same-origin (`/`) agar tombol Execute tidak mengarah ke host yang salah.
-- Untuk menghindari blank page di sebagian browser, CSP pada route docs sudah disesuaikan.
+- `npm run dev`: development (nodemon)
+- `npm start`: production
 
 ## Troubleshooting Singkat
 
-1. `Failed to fetch` di Swagger:
-
-- Pastikan buka URL dengan format `http://<IP-LAN>:5000/api-docs/`
-- Hard refresh browser (`Ctrl+Shift+R`)
-- Pastikan server Swagger memakai dropdown server `/`
-
-2. Chat stream tidak merespons:
-
-- Cek apakah FastAPI aktif di `127.0.0.1:8001`
-- Cek nilai `FASTAPI_BASE_URL` dan `FASTAPI_CHAT_STREAM_PATH`
-
-3. Port sudah dipakai:
-
-- Hentikan proses lama lalu jalankan ulang `npm run dev`
-
-4. Login Google gagal:
-
-- Pastikan `FIREBASE_PROJECT_ID` sudah sesuai
-- Pastikan `idToken` berasal dari Firebase Google sign-in (provider `google.com`)
+- Swagger tidak bisa fetch: pastikan URL benar dan server berjalan.
+- Chat stream atau job role tidak merespons: cek FastAPI dan `FASTAPI_*_PATH`.
+- Login Google gagal: pastikan `FIREBASE_PROJECT_ID` sesuai proyek Firebase dan token berasal dari Google Sign-In.
 
 ## Lisensi
 
