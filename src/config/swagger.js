@@ -103,6 +103,119 @@ const options = {
             },
           },
         },
+        AuthGoogleRequest: {
+          type: 'object',
+          properties: {
+            idToken: {
+              type: 'string',
+              description: 'Firebase ID token from Google sign-in',
+            },
+          },
+          required: ['idToken'],
+        },
+        AuthGoogleResponse: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['ok'],
+              example: 'ok',
+            },
+            message: {
+              type: 'string',
+              example: 'Google login verified',
+            },
+            data: {
+              type: 'object',
+              properties: {
+                user: {
+                  type: 'object',
+                  properties: {
+                    uid: { type: 'string' },
+                    email: { type: 'string', nullable: true },
+                    name: { type: 'string', nullable: true },
+                    picture: { type: 'string', nullable: true },
+                    emailVerified: { type: 'boolean' },
+                    provider: { type: 'string', example: 'google.com' },
+                  },
+                },
+                firebase: {
+                  type: 'object',
+                  properties: {
+                    authTime: { type: 'number', description: 'Unix time in seconds' },
+                    signInProvider: { type: 'string', example: 'google.com' },
+                  },
+                },
+              },
+            },
+            timestamp: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+          required: ['status', 'message', 'data', 'timestamp'],
+        },
+        JobRoleRecommendRequest: {
+          type: 'object',
+          properties: {
+            name: {
+              type: 'string',
+              description: 'Nama user (alias: nama)',
+            },
+            skillset: {
+              type: 'array',
+              items: {
+                type: 'string',
+              },
+              description: 'Daftar skill (contoh: ["python", "sql", "ml"])',
+            },
+          },
+          required: ['name'],
+        },
+        JobRoleRecommendResponse: {
+          type: 'object',
+          properties: {
+            greeting: {
+              type: 'string',
+              example: 'Halo Budi!',
+            },
+            recommendation: {
+              type: 'string',
+              example: 'Berdasarkan skillset kamu, pekerjaan yang cocok untukmu adalah Data Analyst.',
+            },
+            predicted_role: {
+              type: 'string',
+              example: 'Data Analyst',
+            },
+            confidence: {
+              type: 'number',
+              nullable: true,
+            },
+          },
+          required: ['greeting', 'recommendation', 'predicted_role'],
+        },
+        DocumentUploadResponse: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              example: 'success',
+            },
+            message: {
+              type: 'string',
+              example: 'Document processed and stored successfully.',
+            },
+            filename: {
+              type: 'string',
+              example: 'resume.pdf',
+            },
+            total_chunks: {
+              type: 'number',
+              example: 12,
+            },
+          },
+          required: ['status', 'message', 'filename', 'total_chunks'],
+        },
       },
     },
   },
