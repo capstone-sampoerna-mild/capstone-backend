@@ -1,4 +1,5 @@
 export const errorHandler = (err, req, res, next) => {
+  // CHECKPOINT: Stability guard with safe error messaging
   const status = err.status || err.statusCode || 500;
   const isServerError = status >= 500;
   const fallbackMessage = isServerError

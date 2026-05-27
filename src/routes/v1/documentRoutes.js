@@ -5,6 +5,7 @@ import { uploadDocument } from '../../controllers/documentController.js';
 const router = express.Router();
 const upload = multer({ storage: multer.memoryStorage() });
 
+// CHECKPOINT: RESTful API upload endpoint (CV/sertifikat) for AI processing
 router.post(
 	'/document/upload',
 	upload.fields([

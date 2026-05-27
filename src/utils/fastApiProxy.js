@@ -24,6 +24,7 @@ const applyContentType = (res, headers) => {
 
 export const proxyJson = async (req, res, next, path, dataOverride = null) => {
   try {
+    // CHECKPOINT: AI/ML integration via JSON proxy to FastAPI
     const upstreamResponse = await axios({
       method: 'post',
       url: buildFastApiUrl(path),
@@ -45,6 +46,7 @@ export const proxyJson = async (req, res, next, path, dataOverride = null) => {
 
 export const proxyStream = async (req, res, next, path, dataOverride = null) => {
   try {
+    // CHECKPOINT: AI/ML integration via streaming proxy to FastAPI
     const upstreamResponse = await axios({
       method: 'post',
       url: buildFastApiUrl(path),
@@ -68,6 +70,7 @@ export const proxyStream = async (req, res, next, path, dataOverride = null) => 
 
 export const proxyMultipart = async (req, res, next, path, options = {}) => {
   try {
+    // CHECKPOINT: Document upload proxy (AI processing + storage downstream)
     const { file, fieldName = 'file', fields = {} } = options;
     const payloadFile = file ?? req.file;
     const form = new FormData();

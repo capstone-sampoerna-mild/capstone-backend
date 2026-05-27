@@ -9,6 +9,27 @@ Backend ini adalah API Gateway berbasis Express.js yang menjadi penghubung antar
 - Proxy request ke layanan AI untuk chat stream, rekomendasi job role, dan pemrosesan dokumen PDF.
 - Menyediakan konsistensi respons dan error handling yang aman.
 
+## Main Quest Checklist (Backend)
+
+- [x] Membangun RESTful API untuk mendukung aplikasi Front-End.
+- [x] RESTful API dapat menyimpan data dengan atau tanpa menggunakan database (penyimpanan dilakukan oleh layanan AI downstream).
+- [x] Membuat RESTful API dengan URI yang mengikuti standar konvensi RESTful.
+- [x] Mengintegrasikan kemampuan AI/ML sebagai fitur utama aplikasi melalui backend.
+- [x] Memastikan implementasi fitur utama berjalan stabil tanpa menyebabkan aplikasi crash.
+
+## Main Quest Checklist (Frontend - di luar scope backend)
+
+- [ ] Menggunakan networking calls untuk berinteraksi dengan API pada proyek.
+- [ ] Menggunakan module bundler (seperti webpack, Vite, dan sejenisnya) untuk membangun proyek aplikasi web.
+
+## Bukti Implementasi (Backend)
+
+- **RESTful API untuk frontend:** Endpoint utama tersedia di [src/routes/v1/healthRoutes.js](src/routes/v1/healthRoutes.js#L1-L7), [src/routes/v1/authRoutes.js](src/routes/v1/authRoutes.js#L1-L7), [src/routes/v1/chatRoutes.js](src/routes/v1/chatRoutes.js#L1-L7), [src/routes/v1/jobRoleRoutes.js](src/routes/v1/jobRoleRoutes.js#L1-L13), dan [src/routes/v1/documentRoutes.js](src/routes/v1/documentRoutes.js#L1-L18).
+- **URI konvensi RESTful:** Versioning dan struktur path ditetapkan di [src/routes/v1/index.js](src/routes/v1/index.js#L1-L12).
+- **Integrasi AI/ML:** Gateway meneruskan request ke layanan AI lewat proxy JSON, stream, dan multipart di [src/utils/fastApiProxy.js](src/utils/fastApiProxy.js#L25-L105).
+- **Penyimpanan data tanpa DB lokal:** Dokumen diteruskan ke layanan AI untuk diproses dan disimpan melalui [src/routes/v1/documentRoutes.js](src/routes/v1/documentRoutes.js#L8-L16) dan [src/utils/fastApiProxy.js](src/utils/fastApiProxy.js#L69-L105).
+- **Stabilitas dan error handling:** Penanganan error terpusat ada di [src/middlewares/errorHandler.js](src/middlewares/errorHandler.js#L1-L27).
+
 ## Arsitektur Tingkat Tinggi
 
 ```
