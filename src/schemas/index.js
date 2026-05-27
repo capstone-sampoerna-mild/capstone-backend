@@ -1,10 +1,4 @@
-/**
- * Request/Response Schemas for API Documentation
- * These schemas serve as templates for Swagger documentation and validation
- */
-
 export const schemas = {
-  // Pagination Schema
   pagination: {
     type: 'object',
     properties: {
@@ -29,8 +23,6 @@ export const schemas = {
       },
     },
   },
-
-  // Success Response Template
   successResponse: {
     type: 'object',
     properties: {
@@ -55,8 +47,6 @@ export const schemas = {
     },
     required: ['status', 'message', 'timestamp'],
   },
-
-  // Error Response Template
   errorResponse: {
     type: 'object',
     properties: {
@@ -81,8 +71,6 @@ export const schemas = {
     },
     required: ['status', 'message', 'timestamp'],
   },
-
-  // Paginated Response Template
   paginatedResponse: {
     type: 'object',
     properties: {

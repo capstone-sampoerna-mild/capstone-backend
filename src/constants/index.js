@@ -1,8 +1,3 @@
-/**
- * Application Constants
- * Centralized configuration for API gateway constants
- */
-
 export const HTTP_STATUS = {
   OK: 200,
   CREATED: 201,
@@ -29,7 +24,7 @@ export const ERROR_MESSAGES = {
 
 export const API_VERSION = {
   V1: 'v1',
-  V2: 'v2', // Future version
+  V2: 'v2',
 };
 
 export const PAGINATION = {
@@ -39,7 +34,7 @@ export const PAGINATION = {
 };
 
 export const TIMEOUT = {
-  REQUEST: 30000, // 30 seconds
-  DATABASE: 10000, // 10 seconds
-  EXTERNAL_API: 15000, // 15 seconds
+  REQUEST: 30000,
+  DATABASE: 10000,
+  EXTERNAL_API: 15000,
 };

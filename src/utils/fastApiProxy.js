@@ -66,12 +66,21 @@ export const proxyStream = async (req, res, next, path, dataOverride = null) => 
   }
 };
 
-export const proxyMultipart = async (req, res, next, path) => {
+export const proxyMultipart = async (req, res, next, path, options = {}) => {
   try {
+    const { file, fieldName = 'file', fields = {} } = options;
+    const payloadFile = file ?? req.file;
     const form = new FormData();
-    form.append('file', req.file.buffer, {
-      filename: req.file.originalname,
-      contentType: req.file.mimetype,
+    if (payloadFile) {
+      form.append(fieldName, payloadFile.buffer, {
+        filename: payloadFile.originalname,
+        contentType: payloadFile.mimetype,
+      });
+    }
+    Object.entries(fields).forEach(([key, value]) => {
+      if (value !== undefined && value !== null) {
+        form.append(key, value);
+      }
     });
 
     const upstreamResponse = await axios({

@@ -20,7 +20,7 @@ export const config = {
       process.env.FASTAPI_JOB_ROLE_RECOMMEND_GEMINI_STREAM_PATH ||
       '/job-role/job-role/recommend/gemini/stream',
     documentUploadPath:
-      process.env.FASTAPI_DOCUMENT_UPLOAD_PATH || '/document/upload',
+      process.env.FASTAPI_DOCUMENT_UPLOAD_PATH || '/document/predict-pdf',
     timeoutMs: Number(process.env.FASTAPI_TIMEOUT_MS || 60000),
   },
   cors: {
