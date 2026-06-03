@@ -68,16 +68,6 @@ const options = {
           },
           required: ['status', 'message', 'timestamp'],
         },
-        ChatRequest: {
-          type: 'object',
-          properties: {
-            prompt: {
-              type: 'string',
-              example: 'Buat roadmap belajar agar saya bisa jadi ML Engineer dalam 6 bulan.',
-            },
-          },
-          required: ['prompt'],
-        },
         ValidationErrorResponse: {
           type: 'object',
           properties: {
@@ -158,10 +148,6 @@ const options = {
         JobRoleRecommendRequest: {
           type: 'object',
           properties: {
-            name: {
-              type: 'string',
-              description: 'Nama user (alias: nama)',
-            },
             skillset: {
               type: 'array',
               items: {
@@ -170,51 +156,38 @@ const options = {
               description: 'Daftar skill (contoh: ["python", "sql", "ml"])',
             },
           },
-          required: ['name'],
+          required: ['skillset'],
         },
         JobRoleRecommendResponse: {
           type: 'object',
           properties: {
-            greeting: {
-              type: 'string',
-              example: 'Halo Budi!',
-            },
-            recommendation: {
-              type: 'string',
-              example: 'Berdasarkan skillset kamu, pekerjaan yang cocok untukmu adalah Data Analyst.',
-            },
-            predicted_role: {
-              type: 'string',
-              example: 'Data Analyst',
-            },
-            confidence: {
-              type: 'number',
-              nullable: true,
+            top_roles: {
+              type: 'array',
+              items: {
+                type: 'object',
+                properties: {
+                  role: { type: 'string' },
+                  confidence: { type: 'number' },
+                  skill_gap: {
+                    type: 'array',
+                    items: {
+                      type: 'object',
+                      properties: {
+                        skill: { type: 'string' },
+                        confidence: { type: 'number' },
+                      },
+                      required: ['skill', 'confidence'],
+                    },
+                  },
+                },
+                required: ['role', 'confidence', 'skill_gap'],
+              },
             },
           },
-          required: ['greeting', 'recommendation', 'predicted_role'],
+          required: ['top_roles'],
         },
         DocumentUploadResponse: {
-          type: 'object',
-          properties: {
-            status: {
-              type: 'string',
-              example: 'success',
-            },
-            message: {
-              type: 'string',
-              example: 'Document processed and stored successfully.',
-            },
-            filename: {
-              type: 'string',
-              example: 'resume.pdf',
-            },
-            total_chunks: {
-              type: 'number',
-              example: 12,
-            },
-          },
-          required: ['status', 'message', 'filename', 'total_chunks'],
+          $ref: '#/components/schemas/JobRoleRecommendResponse',
         },
       },
     },

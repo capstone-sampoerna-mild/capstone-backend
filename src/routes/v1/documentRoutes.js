@@ -1,9 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 
-import {
-  uploadDocument,
-} from '../../controllers/documentController.js';
+import { uploadDocument } from '../../controllers/documentController.js';
 
 const router = express.Router();
 
@@ -15,8 +13,8 @@ const upload = multer({
  * @swagger
  * /api/v1/document/upload:
  *   post:
- *     summary: Upload CV or certificate PDF
- *     description: Upload CV/certificate and combine with manual skill input for AI analysis
+ *     summary: Upload PDF for analysis
+ *     description: Upload a PDF file for AI processing
  *     tags:
  *       - Document
  *     requestBody:
@@ -29,34 +27,15 @@ const upload = multer({
  *               file:
  *                 type: string
  *                 format: binary
- *                 description: Generic PDF file
- *
- *               cv:
- *                 type: string
- *                 format: binary
- *                 description: CV PDF file
- *
- *               certificate:
- *                 type: string
- *                 format: binary
- *                 description: Certificate PDF file
- *
- *               skillset:
- *                 type: string
- *                 example: '["react","nodejs","mysql"]'
- *                 description: JSON stringified skill array
- *
- *               name:
- *                 type: string
- *                 example: Eval Putra
- *
- *               documentType:
- *                 type: string
- *                 enum: [cv, certificate]
+ *                 description: PDF file
  *
  *     responses:
  *       200:
  *         description: Document processed successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/DocumentUploadResponse'
  *
  *       400:
  *         description: Invalid request
@@ -65,25 +44,6 @@ const upload = multer({
  *         description: Internal server error
  */
 
-router.post(
-  '/document/upload',
-
-  upload.fields([
-    {
-      name: 'cv',
-      maxCount: 1,
-    },
-    {
-      name: 'certificate',
-      maxCount: 1,
-    },
-    {
-      name: 'file',
-      maxCount: 1,
-    },
-  ]),
-
-  uploadDocument
-);
+router.post('/document/upload', upload.single('file'), uploadDocument);
 
 export default router;
