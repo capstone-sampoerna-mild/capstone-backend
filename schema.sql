@@ -36,6 +36,14 @@ CREATE TABLE IF NOT EXISTS public.ai_analysis_history (
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
+-- 4. TABEL SKILLSET USER (Skill yang dimiliki user)
+CREATE TABLE IF NOT EXISTS public.user_skillsets (
+  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  skills TEXT[] NOT NULL DEFAULT '{}',
+  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+);
+
 -- =========================================================================
 -- AUTOMATION TRIGGER & SECURITY POLICY (RLS)
 -- =========================================================================
@@ -57,9 +65,13 @@ CREATE OR REPLACE TRIGGER on_auth_user_created
 ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_analysis_history ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_skillsets ENABLE ROW LEVEL SECURITY;
 
 -- Policies
 CREATE POLICY "Users can view own documents" ON public.documents FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own documents" ON public.documents FOR INSERT WITH CHECK (auth.uid() = user_id);
 CREATE POLICY "Users can view own analysis" ON public.ai_analysis_history FOR SELECT USING (auth.uid() = user_id);
 CREATE POLICY "Users can insert own analysis" ON public.ai_analysis_history FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can view own skillsets" ON public.user_skillsets FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own skillsets" ON public.user_skillsets FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own skillsets" ON public.user_skillsets FOR UPDATE USING (auth.uid() = user_id);

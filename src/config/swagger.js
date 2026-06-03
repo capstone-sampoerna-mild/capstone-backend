@@ -189,6 +189,73 @@ const options = {
         DocumentUploadResponse: {
           $ref: '#/components/schemas/JobRoleRecommendResponse',
         },
+        DocumentListResponse: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['ok'],
+            },
+            message: {
+              type: 'string',
+              example: 'Documents retrieved',
+            },
+            data: {
+              type: 'object',
+              properties: {
+                documents: {
+                  type: 'array',
+                  items: {
+                    type: 'object',
+                    properties: {
+                      id: { type: 'string' },
+                      user_id: { type: 'string' },
+                      file_name: { type: 'string' },
+                      file_url: { type: 'string' },
+                      file_size_bytes: { type: 'integer', nullable: true },
+                      created_at: { type: 'string', format: 'date-time' },
+                    },
+                  },
+                },
+              },
+            },
+            timestamp: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+          required: ['status', 'message', 'data', 'timestamp'],
+        },
+        UserSkillsetResponse: {
+          type: 'object',
+          properties: {
+            status: {
+              type: 'string',
+              enum: ['ok'],
+            },
+            message: {
+              type: 'string',
+              example: 'Skillset retrieved',
+            },
+            data: {
+              type: 'object',
+              properties: {
+                userId: { type: 'string' },
+                skills: {
+                  type: 'array',
+                  items: { type: 'string' },
+                },
+                updated_at: { type: 'string', format: 'date-time', nullable: true },
+                created_at: { type: 'string', format: 'date-time', nullable: true },
+              },
+            },
+            timestamp: {
+              type: 'string',
+              format: 'date-time',
+            },
+          },
+          required: ['status', 'message', 'data', 'timestamp'],
+        },
       },
     },
   },

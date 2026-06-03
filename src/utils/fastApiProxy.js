@@ -71,7 +71,7 @@ export const proxyStream = async (req, res, next, path, dataOverride = null) => 
 export const proxyMultipart = async (req, res, next, path, options = {}) => {
   try {
     // CHECKPOINT: Document upload proxy (AI processing + storage downstream)
-    const { file, fieldName = 'file', fields = {} } = options;
+    const { file, fieldName = 'file', fields = {}, onResponse } = options;
     const payloadFile = file ?? req.file;
     const form = new FormData();
     if (payloadFile) {
@@ -99,6 +99,10 @@ export const proxyMultipart = async (req, res, next, path, options = {}) => {
       maxContentLength: Infinity,
       validateStatus: () => true,
     });
+
+    if (typeof onResponse === 'function') {
+      await onResponse(upstreamResponse);
+    }
 
     applyContentType(res, upstreamResponse.headers);
     return res.status(upstreamResponse.status).send(upstreamResponse.data);
