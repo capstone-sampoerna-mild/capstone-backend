@@ -24,6 +24,13 @@ const options = {
       },
     ],
     components: {
+      securitySchemes: {
+        bearerAuth: {
+          type: 'http',
+          scheme: 'bearer',
+          bearerFormat: 'JWT',
+        },
+      },
       schemas: {
         HealthResponse: {
           type: 'object',
@@ -102,6 +109,15 @@ const options = {
             },
           },
           required: ['idToken'],
+        },
+        AuthRefreshRequest: {
+          type: 'object',
+          properties: {
+            refreshToken: {
+              type: 'string',
+            },
+          },
+          required: ['refreshToken'],
         },
         AuthGoogleResponse: {
           type: 'object',

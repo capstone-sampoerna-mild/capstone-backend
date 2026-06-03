@@ -1,5 +1,6 @@
 import express from 'express';
 import { getUserSkillset } from '../../controllers/profileController.js';
+import { authenticateJwt } from '../../middlewares/jwtAuth.js';
 
 const router = express.Router();
 
@@ -11,6 +12,8 @@ const router = express.Router();
  *     description: Fetch stored skillset for a user profile
  *     tags:
  *       - Profile
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
@@ -38,6 +41,6 @@ const router = express.Router();
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/profile/skillset', getUserSkillset);
+router.get('/profile/skillset', authenticateJwt, getUserSkillset);
 
 export default router;

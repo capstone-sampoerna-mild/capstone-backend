@@ -2,6 +2,7 @@ import express from 'express';
 import multer from 'multer';
 
 import { getUserDocuments, uploadDocument } from '../../controllers/documentController.js';
+import { authenticateJwt } from '../../middlewares/jwtAuth.js';
 
 const router = express.Router();
 
@@ -17,6 +18,8 @@ const upload = multer({
  *     description: Upload a PDF file for AI processing
  *     tags:
  *       - Document
+ *     security:
+ *       - bearerAuth: []
  *     requestBody:
  *       required: true
  *       content:
@@ -47,7 +50,7 @@ const upload = multer({
  *         description: Internal server error
  */
 
-router.post('/document/upload', upload.single('file'), uploadDocument);
+router.post('/document/upload', authenticateJwt, upload.single('file'), uploadDocument);
 
 /**
  * @swagger
@@ -57,6 +60,8 @@ router.post('/document/upload', upload.single('file'), uploadDocument);
  *     description: Fetch uploaded documents for a user
  *     tags:
  *       - Document
+ *     security:
+ *       - bearerAuth: []
  *     parameters:
  *       - in: query
  *         name: userId
@@ -84,6 +89,6 @@ router.post('/document/upload', upload.single('file'), uploadDocument);
  *             schema:
  *               $ref: '#/components/schemas/ErrorResponse'
  */
-router.get('/document', getUserDocuments);
+router.get('/document', authenticateJwt, getUserDocuments);
 
 export default router;

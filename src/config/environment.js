@@ -26,4 +26,10 @@ export const config = {
     url: process.env.SUPABASE_URL || '',
     serviceRoleKey: process.env.SUPABASE_SERVICE_ROLE_KEY || '',
   },
+  jwt: {
+    accessSecret: process.env.JWT_SECRET || '',
+    refreshSecret: process.env.JWT_REFRESH_SECRET || '',
+    accessTtlMinutes: Number(process.env.JWT_ACCESS_TTL_MINUTES || 15),
+    refreshTtlDays: Number(process.env.JWT_REFRESH_TTL_DAYS || 7),
+  },
 };

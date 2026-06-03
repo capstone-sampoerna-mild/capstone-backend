@@ -4,7 +4,7 @@ import { supabase } from '../utils/supabaseClient.js';
 
 export const getUserSkillset = async (req, res, next) => {
   try {
-    const userId = req.query.userId || req.query.user_id;
+    const userId = req.userId || req.query.userId || req.query.user_id;
 
     if (!userId) {
       throw new ValidationError('userId is required');

@@ -1,5 +1,5 @@
 import express from 'express';
-import { loginWithGoogle } from '../../controllers/authController.js';
+import { loginWithGoogle, refreshAccessToken } from '../../controllers/authController.js';
 
 const router = express.Router();
 /**
@@ -38,5 +38,32 @@ const router = express.Router();
  */
 // CHECKPOINT: RESTful API endpoint for Firebase Google login
 router.post('/auth/google', loginWithGoogle);
+
+/**
+ * @swagger
+ * /api/v1/auth/refresh:
+ *   post:
+ *     summary: Refresh access token
+ *     description: Issue a new access token using a refresh token
+ *     tags:
+ *       - Auth
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *     responses:
+ *       200:
+ *         description: Access token refreshed
+ *       400:
+ *         description: Invalid request
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/auth/refresh', refreshAccessToken);
 
 export default router;

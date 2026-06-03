@@ -1,10 +1,9 @@
 
 import { config } from '../config/environment.js';
-import { AuthenticationError, InternalServerError, ValidationError } from '../utils/APIError.js';
+import { InternalServerError, ValidationError } from '../utils/APIError.js';
 import { proxyMultipart } from '../utils/fastApiProxy.js';
 import { ResponseFormatter } from '../utils/ResponseFormatter.js';
 import { supabase } from '../utils/supabaseClient.js';
-import { verifyFirebaseIdToken } from '../utils/firebaseTokenVerifier.js';
 
 const normalizeSkills = (skills) => {
   if (!Array.isArray(skills)) {
@@ -75,19 +74,7 @@ const extractDocumentUrl = (payload) => {
 
 export const uploadDocument = async (req, res, next) => {
   const payloadFile = req.file;
-
-  let userId = req.body?.userId || req.body?.user_id || req.headers['x-user-id'];
-
-  if (!userId && req.headers.authorization?.startsWith('Bearer ')) {
-    const token = req.headers.authorization.replace('Bearer ', '').trim();
-    try {
-      const decodedToken = await verifyFirebaseIdToken(token);
-      userId = decodedToken.uid;
-    } catch (error) {
-      next(new AuthenticationError('Invalid Firebase ID token'));
-      return;
-    }
-  }
+  const userId = req.userId || req.body?.userId || req.body?.user_id;
 
   if (!payloadFile) {
     next(new ValidationError('file is required'));
@@ -154,7 +141,7 @@ export const uploadDocument = async (req, res, next) => {
 
 export const getUserDocuments = async (req, res, next) => {
   try {
-    const userId = req.query.userId || req.query.user_id;
+    const userId = req.userId || req.query.userId || req.query.user_id;
 
     if (!userId) {
       throw new ValidationError('userId is required');
