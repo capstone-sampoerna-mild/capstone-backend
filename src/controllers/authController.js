@@ -1,6 +1,7 @@
-import { AuthenticationError, ValidationError } from '../utils/APIError.js';
+import { AuthenticationError, InternalServerError, ValidationError } from '../utils/APIError.js';
 import { ResponseFormatter } from '../utils/ResponseFormatter.js';
 import { verifyFirebaseIdToken } from '../utils/firebaseTokenVerifier.js';
+import { supabase } from '../utils/supabaseClient.js';
 
 export const loginWithGoogle = async (req, res, next) => {
   try {
@@ -32,8 +33,30 @@ export const loginWithGoogle = async (req, res, next) => {
       provider: signInProvider,
     };
 
+    if (!user.email) {
+      throw new ValidationError('Email is required to create profile');
+    }
+
+    const profilePayload = {
+      firebase_uid: user.uid,
+      email: user.email,
+      full_name: user.name,
+      updated_at: new Date().toISOString(),
+    };
+
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .upsert(profilePayload, { onConflict: 'firebase_uid' })
+      .select('id, firebase_uid, email, full_name, updated_at')
+      .single();
+
+    if (profileError) {
+      throw new InternalServerError('Failed to save profile', profileError);
+    }
+
     return ResponseFormatter.success(res, 200, 'Google login verified', {
       user,
+      profile,
       firebase: {
         authTime: decodedToken.auth_time,
         signInProvider,
