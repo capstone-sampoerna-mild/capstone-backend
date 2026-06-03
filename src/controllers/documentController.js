@@ -72,6 +72,26 @@ const extractDocumentUrl = (payload) => {
   return null;
 };
 
+/**
+ * Resolve firebase_uid (string) → profile UUID.
+ * All DB tables reference profiles(id) which is a UUID,
+ * but req.userId contains the Firebase UID from the JWT `sub` claim.
+ */
+const resolveProfileId = async (firebaseUid) => {
+  const { data: profile, error } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('firebase_uid', firebaseUid)
+    .single();
+
+  if (error || !profile) {
+    console.error('[resolveProfileId] Profile lookup failed for firebase_uid:', firebaseUid, error);
+    return null;
+  }
+
+  return profile.id;
+};
+
 export const uploadDocument = async (req, res, next) => {
   const payloadFile = req.file;
   const firebaseUid = req.userId || req.body?.userId || req.body?.user_id;
@@ -86,29 +106,37 @@ export const uploadDocument = async (req, res, next) => {
     return;
   }
 
-  // --- Lookup profile UUID from firebase_uid ---
-  // req.userId contains the Firebase UID (string), but all tables
-  // reference profiles(id) which is a UUID. We must resolve it first.
-  const { data: profile, error: profileError } = await supabase
-    .from('profiles')
-    .select('id')
-    .eq('firebase_uid', firebaseUid)
-    .single();
+  // --- Step 1: Resolve Firebase UID → Profile UUID ---
+  const userId = await resolveProfileId(firebaseUid);
 
-  if (profileError || !profile) {
+  if (!userId) {
     next(new InternalServerError('Profile not found for this user'));
     return;
   }
 
-  const userId = profile.id; // ← actual UUID
+  console.info('[uploadDocument] Resolved firebase_uid:', firebaseUid, '→ profile.id:', userId);
 
+  // --- Step 2: Proxy file to FastAPI for AI analysis ---
   return proxyMultipart(req, res, next, config.fastApi.documentUploadPath, {
     file: payloadFile,
     onResponse: async (upstreamResponse) => {
-      const skillset = extractSkillset(upstreamResponse?.data);
+      const fastApiStatus = upstreamResponse?.status;
+      console.info('[uploadDocument] FastAPI responded with status:', fastApiStatus);
 
+      // If FastAPI returned an error, skip DB saves but still forward the response
+      if (!fastApiStatus || fastApiStatus >= 400) {
+        console.error('[uploadDocument] FastAPI returned error status:', fastApiStatus,
+          'body:', JSON.stringify(upstreamResponse?.data)?.substring(0, 500));
+        // Don't throw — let proxyMultipart forward the FastAPI error response as-is
+        return;
+      }
+
+      // --- Step 3: Save document metadata to Supabase ---
+      const skillset = extractSkillset(upstreamResponse?.data);
       const fileUrl =
         extractDocumentUrl(upstreamResponse?.data) || payloadFile.originalname || 'unknown';
+
+      console.info('[uploadDocument] Extracted skills:', skillset.length, '| fileUrl:', fileUrl);
 
       const { data: document, error: documentError } = await supabase
         .from('documents')
@@ -122,24 +150,57 @@ export const uploadDocument = async (req, res, next) => {
         .single();
 
       if (documentError) {
+        console.error('[uploadDocument] Failed to save document:', {
+          message: documentError.message,
+          code: documentError.code,
+          details: documentError.details,
+          hint: documentError.hint,
+        });
         throw new InternalServerError('Failed to save document', documentError);
+      }
+
+      console.info('[uploadDocument] Document saved. document.id:', document.id);
+
+      // --- Step 4: Save AI analysis history ---
+      // Ensure ai_output_response is a valid JSON object for the JSONB column
+      let aiOutput = upstreamResponse?.data;
+      if (typeof aiOutput === 'string') {
+        try {
+          aiOutput = JSON.parse(aiOutput);
+        } catch {
+          aiOutput = { raw_response: aiOutput };
+        }
+      }
+      if (!aiOutput || typeof aiOutput !== 'object') {
+        aiOutput = {};
       }
 
       const { error: analysisError } = await supabase.from('ai_analysis_history').insert({
         user_id: userId,
         document_id: document.id,
-        ai_output_response: upstreamResponse?.data ?? {},
+        ai_output_response: aiOutput,
       });
 
       if (analysisError) {
-        throw new InternalServerError('Failed to save analysis history', analysisError);
+        console.error('[uploadDocument] Failed to save analysis history:', {
+          message: analysisError.message,
+          code: analysisError.code,
+          details: analysisError.details,
+          hint: analysisError.hint,
+        });
+        // Non-fatal: document was saved, log but continue
+        console.warn('[uploadDocument] Continuing despite analysis history save failure');
+      } else {
+        console.info('[uploadDocument] Analysis history saved.');
       }
 
+      // --- Step 5: Upsert user skillset ---
       if (skillset.length === 0) {
+        console.info('[uploadDocument] No skills extracted, skipping skillset upsert.');
         return;
       }
 
-      const { error } = await supabase.from('user_skillsets').upsert(
+      const { error: skillsetError } = await supabase.from('user_skillsets').upsert(
         {
           user_id: userId,
           skills: skillset,
@@ -148,8 +209,17 @@ export const uploadDocument = async (req, res, next) => {
         { onConflict: 'user_id' }
       );
 
-      if (error) {
-        throw new InternalServerError('Failed to save skillset', error);
+      if (skillsetError) {
+        console.error('[uploadDocument] Failed to save skillset:', {
+          message: skillsetError.message,
+          code: skillsetError.code,
+          details: skillsetError.details,
+          hint: skillsetError.hint,
+        });
+        // Non-fatal: log and continue
+        console.warn('[uploadDocument] Continuing despite skillset save failure');
+      } else {
+        console.info('[uploadDocument] Skillset upserted. Skills count:', skillset.length);
       }
     },
   });
@@ -164,17 +234,11 @@ export const getUserDocuments = async (req, res, next) => {
     }
 
     // Resolve firebase_uid → profile UUID
-    const { data: profile, error: profileError } = await supabase
-      .from('profiles')
-      .select('id')
-      .eq('firebase_uid', firebaseUid)
-      .single();
+    const userId = await resolveProfileId(firebaseUid);
 
-    if (profileError || !profile) {
+    if (!userId) {
       throw new InternalServerError('Profile not found for this user');
     }
-
-    const userId = profile.id;
 
     const { data, error } = await supabase
       .from('documents')
