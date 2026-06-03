@@ -30,7 +30,7 @@ const upload = multer({
  *                 description: PDF file
  *               userId:
  *                 type: string
- *                 description: User ID (UUID) to persist skillset
+ *                 description: User ID (Firebase UID) to persist skillset
  *
  *     responses:
  *       200:
@@ -63,7 +63,7 @@ router.post('/document/upload', upload.single('file'), uploadDocument);
  *         required: true
  *         schema:
  *           type: string
- *         description: User ID (UUID)
+ *         description: User ID (Firebase UID)
  *     responses:
  *       200:
  *         description: Documents retrieved

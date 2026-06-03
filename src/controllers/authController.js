@@ -54,6 +54,19 @@ export const loginWithGoogle = async (req, res, next) => {
       throw new InternalServerError('Failed to save profile', profileError);
     }
 
+    const { error: skillsetError } = await supabase.from('user_skillsets').upsert(
+      {
+        user_id: profile.id,
+        skills: [],
+        updated_at: new Date().toISOString(),
+      },
+      { onConflict: 'user_id' }
+    );
+
+    if (skillsetError) {
+      throw new InternalServerError('Failed to initialize skillset', skillsetError);
+    }
+
     return ResponseFormatter.success(res, 200, 'Google login verified', {
       user,
       profile,

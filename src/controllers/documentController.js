@@ -1,9 +1,10 @@
 
 import { config } from '../config/environment.js';
-import { InternalServerError, ValidationError } from '../utils/APIError.js';
+import { AuthenticationError, InternalServerError, ValidationError } from '../utils/APIError.js';
 import { proxyMultipart } from '../utils/fastApiProxy.js';
 import { ResponseFormatter } from '../utils/ResponseFormatter.js';
 import { supabase } from '../utils/supabaseClient.js';
+import { verifyFirebaseIdToken } from '../utils/firebaseTokenVerifier.js';
 
 const normalizeSkills = (skills) => {
   if (!Array.isArray(skills)) {
@@ -47,23 +48,89 @@ const extractSkillset = (payload) => {
   return [];
 };
 
+const extractDocumentUrl = (payload) => {
+  if (!payload || typeof payload !== 'object') {
+    return null;
+  }
+
+  const candidates = [
+    payload.file_url,
+    payload.fileUrl,
+    payload.document_url,
+    payload.documentUrl,
+    payload.data?.file_url,
+    payload.data?.fileUrl,
+    payload.data?.document_url,
+    payload.data?.documentUrl,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate === 'string' && candidate.trim().length > 0) {
+      return candidate.trim();
+    }
+  }
+
+  return null;
+};
+
 export const uploadDocument = async (req, res, next) => {
   const payloadFile = req.file;
-  const userId = req.body?.userId || req.body?.user_id;
+
+  let userId = req.body?.userId || req.body?.user_id || req.headers['x-user-id'];
+
+  if (!userId && req.headers.authorization?.startsWith('Bearer ')) {
+    const token = req.headers.authorization.replace('Bearer ', '').trim();
+    try {
+      const decodedToken = await verifyFirebaseIdToken(token);
+      userId = decodedToken.uid;
+    } catch (error) {
+      next(new AuthenticationError('Invalid Firebase ID token'));
+      return;
+    }
+  }
 
   if (!payloadFile) {
     next(new ValidationError('file is required'));
     return;
   }
 
+  if (!userId) {
+    next(new ValidationError('userId is required'));
+    return;
+  }
+
   return proxyMultipart(req, res, next, config.fastApi.documentUploadPath, {
     file: payloadFile,
     onResponse: async (upstreamResponse) => {
-      if (!userId) {
-        return;
+      const skillset = extractSkillset(upstreamResponse?.data);
+
+      const fileUrl =
+        extractDocumentUrl(upstreamResponse?.data) || payloadFile.originalname || 'unknown';
+
+      const { data: document, error: documentError } = await supabase
+        .from('documents')
+        .insert({
+          user_id: userId,
+          file_name: payloadFile.originalname,
+          file_url: fileUrl,
+          file_size_bytes: payloadFile.size ?? null,
+        })
+        .select('id')
+        .single();
+
+      if (documentError) {
+        throw new InternalServerError('Failed to save document', documentError);
       }
 
-      const skillset = extractSkillset(upstreamResponse?.data);
+      const { error: analysisError } = await supabase.from('ai_analysis_history').insert({
+        user_id: userId,
+        document_id: document.id,
+        ai_output_response: upstreamResponse?.data ?? {},
+      });
+
+      if (analysisError) {
+        throw new InternalServerError('Failed to save analysis history', analysisError);
+      }
 
       if (skillset.length === 0) {
         return;

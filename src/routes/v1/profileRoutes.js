@@ -17,7 +17,7 @@ const router = express.Router();
  *         required: true
  *         schema:
  *           type: string
- *         description: User ID (UUID)
+ *         description: User ID (Firebase UID)
  *     responses:
  *       200:
  *         description: Skillset retrieved
