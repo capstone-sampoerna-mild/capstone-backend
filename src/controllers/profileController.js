@@ -4,11 +4,24 @@ import { supabase } from '../utils/supabaseClient.js';
 
 export const getUserSkillset = async (req, res, next) => {
   try {
-    const userId = req.userId || req.query.userId || req.query.user_id;
+    const firebaseUid = req.userId || req.query.userId || req.query.user_id;
 
-    if (!userId) {
+    if (!firebaseUid) {
       throw new ValidationError('userId is required');
     }
+
+    // Resolve firebase_uid → profile UUID
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+
+    if (profileError || !profile) {
+      throw new InternalServerError('Profile not found for this user');
+    }
+
+    const userId = profile.id;
 
     const { data, error } = await supabase
       .from('user_skillsets')

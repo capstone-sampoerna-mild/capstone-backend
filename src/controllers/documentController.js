@@ -74,17 +74,33 @@ const extractDocumentUrl = (payload) => {
 
 export const uploadDocument = async (req, res, next) => {
   const payloadFile = req.file;
-  const userId = req.userId || req.body?.userId || req.body?.user_id;
+  const firebaseUid = req.userId || req.body?.userId || req.body?.user_id;
 
   if (!payloadFile) {
     next(new ValidationError('file is required'));
     return;
   }
 
-  if (!userId) {
+  if (!firebaseUid) {
     next(new ValidationError('userId is required'));
     return;
   }
+
+  // --- Lookup profile UUID from firebase_uid ---
+  // req.userId contains the Firebase UID (string), but all tables
+  // reference profiles(id) which is a UUID. We must resolve it first.
+  const { data: profile, error: profileError } = await supabase
+    .from('profiles')
+    .select('id')
+    .eq('firebase_uid', firebaseUid)
+    .single();
+
+  if (profileError || !profile) {
+    next(new InternalServerError('Profile not found for this user'));
+    return;
+  }
+
+  const userId = profile.id; // ← actual UUID
 
   return proxyMultipart(req, res, next, config.fastApi.documentUploadPath, {
     file: payloadFile,
@@ -141,11 +157,24 @@ export const uploadDocument = async (req, res, next) => {
 
 export const getUserDocuments = async (req, res, next) => {
   try {
-    const userId = req.userId || req.query.userId || req.query.user_id;
+    const firebaseUid = req.userId || req.query.userId || req.query.user_id;
 
-    if (!userId) {
+    if (!firebaseUid) {
       throw new ValidationError('userId is required');
     }
+
+    // Resolve firebase_uid → profile UUID
+    const { data: profile, error: profileError } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('firebase_uid', firebaseUid)
+      .single();
+
+    if (profileError || !profile) {
+      throw new InternalServerError('Profile not found for this user');
+    }
+
+    const userId = profile.id;
 
     const { data, error } = await supabase
       .from('documents')
