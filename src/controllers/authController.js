@@ -18,8 +18,22 @@ export const loginWithGoogle = async (req, res, next) => {
     try {
       decodedToken = await verifyFirebaseIdToken(idToken);
     } catch (error) {
+      console.error('[loginWithGoogle] Firebase token verification failed:', error.message);
       throw new AuthenticationError('Invalid Firebase ID token');
     }
+
+    // --- FIX: Firebase JWT uses `sub` claim as the UID (same value as `uid`) ---
+    // jsonwebtoken library exposes verified payload claims directly.
+    // The `uid` property is NOT a standard JWT claim — some versions of
+    // firebase-admin set it, but when verifying manually with jsonwebtoken,
+    // the Firebase UID lives in the `sub` claim. We fall back gracefully.
+    const firebaseUid = decodedToken.uid || decodedToken.sub;
+
+    if (!firebaseUid) {
+      console.error('[loginWithGoogle] Decoded token is missing UID. Token claims:', JSON.stringify(decodedToken));
+      throw new AuthenticationError('Firebase token does not contain a valid user ID (uid/sub)');
+    }
+
     const signInProvider = decodedToken.firebase?.sign_in_provider;
 
     if (signInProvider !== 'google.com') {
@@ -27,7 +41,7 @@ export const loginWithGoogle = async (req, res, next) => {
     }
 
     const user = {
-      uid: decodedToken.uid,
+      uid: firebaseUid,                               // ← always non-null now
       email: decodedToken.email || null,
       name: decodedToken.name || null,
       picture: decodedToken.picture || null,
@@ -66,8 +80,11 @@ export const loginWithGoogle = async (req, res, next) => {
       { expiresIn: `${config.jwt.refreshTtlDays}d` }
     );
 
+    // --- FIX: profilePayload does NOT include `id` ---
+    // The `id` column is auto-generated (gen_random_uuid()) by Supabase.
+    // Only `firebase_uid` is needed to identify / upsert the row.
     const profilePayload = {
-      firebase_uid: user.uid,
+      firebase_uid: user.uid,            // ← maps to `firebase_uid` TEXT UNIQUE column
       email: user.email,
       full_name: user.name,
       picture_url: user.picture,
@@ -79,6 +96,8 @@ export const loginWithGoogle = async (req, res, next) => {
       updated_at: new Date().toISOString(),
     };
 
+    console.info('[loginWithGoogle] Upserting profile for firebase_uid:', user.uid);
+
     const { data: profile, error: profileError } = await supabase
       .from('profiles')
       .upsert(profilePayload, { onConflict: 'firebase_uid' })
@@ -86,8 +105,17 @@ export const loginWithGoogle = async (req, res, next) => {
       .single();
 
     if (profileError) {
-      throw new InternalServerError('Failed to save profile', profileError);
+      // Log the raw DB error so we can debug without crashing the server
+      console.error('[loginWithGoogle] Supabase upsert error:', {
+        message: profileError.message,
+        code: profileError.code,
+        details: profileError.details,
+        hint: profileError.hint,
+      });
+      throw new InternalServerError('Failed to save profile');
     }
+
+    console.info('[loginWithGoogle] Profile saved successfully. profile.id:', profile?.id);
 
     const { error: skillsetError } = await supabase.from('user_skillsets').upsert(
       {
@@ -99,7 +127,12 @@ export const loginWithGoogle = async (req, res, next) => {
     );
 
     if (skillsetError) {
-      throw new InternalServerError('Failed to initialize skillset', skillsetError);
+      // Non-fatal: profile was saved successfully — log and continue
+      console.error('[loginWithGoogle] Failed to initialize skillset (non-fatal):', {
+        message: skillsetError.message,
+        code: skillsetError.code,
+        details: skillsetError.details,
+      });
     }
 
     return ResponseFormatter.success(res, 200, 'Google login verified', {

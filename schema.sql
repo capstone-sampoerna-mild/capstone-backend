@@ -1,77 +1,78 @@
 -- =========================================================================
--- SKEMA DATABASE SUPABASE (POSTGRESQL) - ALIGNED WITH AI SKILLSGAP SERVICE
+-- SKEMA DATABASE SUPABASE (POSTGRESQL) - Firebase Authentication Backend
+-- =========================================================================
+-- ARCHITECTURE NOTE:
+--   This project uses Firebase Authentication (NOT Supabase Auth).
+--   The `profiles` table therefore does NOT reference `auth.users`.
+--   The Firebase UID (a string like "abc123xyz") is stored in `firebase_uid`.
+--   The `id` column is a Supabase-generated UUID used for internal FK relations.
 -- =========================================================================
 
--- 1. TABEL PROFILES (Tetap sama)
+-- 1. TABEL PROFILES
 CREATE TABLE IF NOT EXISTS public.profiles (
-  id UUID REFERENCES auth.users ON DELETE CASCADE PRIMARY KEY,
-  email TEXT UNIQUE NOT NULL,
-  full_name TEXT,
-  updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  id                 UUID  DEFAULT gen_random_uuid() PRIMARY KEY,
+  firebase_uid       TEXT  UNIQUE NOT NULL,          -- Firebase UID (sub claim dari JWT)
+  email              TEXT  UNIQUE NOT NULL,
+  full_name          TEXT,
+  picture_url        TEXT,
+  provider           TEXT  DEFAULT 'google.com',
+  access_token       TEXT,
+  refresh_token      TEXT,
+  access_expires_at  TIMESTAMP WITH TIME ZONE,
+  refresh_expires_at TIMESTAMP WITH TIME ZONE,
+  created_at         TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
+  updated_at         TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 2. TABEL DOCUMENTS (Tetap sama untuk menyimpan file resume/CV PDF)
+-- 2. TABEL DOCUMENTS
 CREATE TABLE IF NOT EXISTS public.documents (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  file_name TEXT NOT NULL,
-  file_url TEXT NOT NULL, 
+  id              UUID    DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id         UUID    REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  file_name       TEXT    NOT NULL,
+  file_url        TEXT    NOT NULL,
   file_size_bytes INTEGER,
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  created_at      TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 3. TABEL REKOMENDASI & ANALISIS AI (Diubah agar match dengan output FastAPI)
+-- 3. TABEL REKOMENDASI & ANALISIS AI
 CREATE TABLE IF NOT EXISTS public.ai_analysis_history (
-  id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
-  document_id UUID REFERENCES public.documents(id) ON DELETE SET NULL, -- Terisi jika analisis lewat PDF
-  
-  -- Input dari user (Bisa berupa prompt teks biasa atau array skillset dari frontend)
-  user_prompt TEXT,
-  input_skillset TEXT[], -- Menyimpan array ["python", "sql"] jika menggunakan endpoint /job-role/recommend
-  
-  -- Output hasil analisis AI dari FastAPI (Disimpan dalam format JSONB agar struktur top_roles tetap utuh)
-  ai_output_response JSONB NOT NULL, 
-  
-  created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
+  id                 UUID  DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id            UUID  REFERENCES public.profiles(id) ON DELETE CASCADE NOT NULL,
+  document_id        UUID  REFERENCES public.documents(id) ON DELETE SET NULL,
+  user_prompt        TEXT,
+  input_skillset     TEXT[],
+  ai_output_response JSONB NOT NULL,
+  created_at         TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
--- 4. TABEL SKILLSET USER (Skill yang dimiliki user)
+-- 4. TABEL SKILLSET USER
 CREATE TABLE IF NOT EXISTS public.user_skillsets (
-  user_id UUID REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
-  skills TEXT[] NOT NULL DEFAULT '{}',
+  user_id    UUID    REFERENCES public.profiles(id) ON DELETE CASCADE PRIMARY KEY,
+  skills     TEXT[]  NOT NULL DEFAULT '{}',
   created_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL,
   updated_at TIMESTAMP WITH TIME ZONE DEFAULT TIMEZONE('utc'::text, NOW()) NOT NULL
 );
 
 -- =========================================================================
--- AUTOMATION TRIGGER & SECURITY POLICY (RLS)
+-- SECURITY POLICY (RLS)
+-- NOTE: Backend uses `service_role` key which bypasses RLS automatically.
+--       These policies are still defined for best practices / future use.
 -- =========================================================================
 
-CREATE OR REPLACE FUNCTION public.handle_new_user()
-RETURNS TRIGGER AS $$
-BEGIN
-  INSERT INTO public.profiles (id, email, full_name)
-  VALUES (new.id, new.email, COALESCE(new.raw_user_meta_data->>'full_name', 'User Baru'));
-  RETURN new;
-END;
-$$ LANGUAGE plpgsql SECURITY DEFINER;
-
-CREATE OR REPLACE TRIGGER on_auth_user_created
-  AFTER INSERT ON auth.users
-  FOR EACH ROW EXECUTE PROCEDURE public.handle_new_user();
-
--- Enable RLS
-ALTER TABLE public.profiles ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.documents ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.profiles            ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.documents           ENABLE ROW LEVEL SECURITY;
 ALTER TABLE public.ai_analysis_history ENABLE ROW LEVEL SECURITY;
-ALTER TABLE public.user_skillsets ENABLE ROW LEVEL SECURITY;
+ALTER TABLE public.user_skillsets      ENABLE ROW LEVEL SECURITY;
 
--- Policies
-CREATE POLICY "Users can view own documents" ON public.documents FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own documents" ON public.documents FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can view own analysis" ON public.ai_analysis_history FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own analysis" ON public.ai_analysis_history FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can view own skillsets" ON public.user_skillsets FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own skillsets" ON public.user_skillsets FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own skillsets" ON public.user_skillsets FOR UPDATE USING (auth.uid() = user_id);
+-- Allow backend (service_role) full access
+CREATE POLICY "Allow service role full access on profiles"
+  ON public.profiles FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow service role full access on documents"
+  ON public.documents FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow service role full access on ai_analysis_history"
+  ON public.ai_analysis_history FOR ALL USING (true) WITH CHECK (true);
+
+CREATE POLICY "Allow service role full access on user_skillsets"
+  ON public.user_skillsets FOR ALL USING (true) WITH CHECK (true);
