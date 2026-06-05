@@ -22,7 +22,7 @@ const applyContentType = (res, headers) => {
   }
 };
 
-export const proxyJson = async (req, res, next, path, dataOverride = null) => {
+export const proxyJson = async (req, res, next, path, dataOverride = null, options = {}) => {
   try {
     // CHECKPOINT: AI/ML integration via JSON proxy to FastAPI
     const upstreamResponse = await axios({
@@ -36,6 +36,11 @@ export const proxyJson = async (req, res, next, path, dataOverride = null) => {
       },
       validateStatus: () => true,
     });
+
+    const { onResponse } = options;
+    if (typeof onResponse === 'function') {
+      await onResponse(upstreamResponse);
+    }
 
     applyContentType(res, upstreamResponse.headers);
     return res.status(upstreamResponse.status).send(upstreamResponse.data);

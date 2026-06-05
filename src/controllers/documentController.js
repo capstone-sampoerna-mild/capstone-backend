@@ -17,9 +17,25 @@ const normalizeSkills = (skills) => {
   return Array.from(new Set(normalized));
 };
 
-const extractSkillset = (payload) => {
+export const extractSkillset = (payload) => {
   if (!payload || typeof payload !== 'object') {
     return [];
+  }
+
+  // Also check top_roles nested arrays
+  if (Array.isArray(payload.top_roles)) {
+    let allSkills = [];
+    payload.top_roles.forEach(role => {
+      if (Array.isArray(role.skills)) {
+        allSkills = allSkills.concat(role.skills);
+      }
+      if (Array.isArray(role.skillset)) {
+        allSkills = allSkills.concat(role.skillset);
+      }
+    });
+    if (allSkills.length > 0) {
+      return normalizeSkills(allSkills);
+    }
   }
 
   const candidates = [
@@ -77,7 +93,7 @@ const extractDocumentUrl = (payload) => {
  * All DB tables reference profiles(id) which is a UUID,
  * but req.userId contains the Firebase UID from the JWT `sub` claim.
  */
-const resolveProfileId = async (firebaseUid) => {
+export const resolveProfileId = async (firebaseUid) => {
   const { data: profile, error } = await supabase
     .from('profiles')
     .select('id')
