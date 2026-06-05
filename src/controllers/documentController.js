@@ -22,27 +22,16 @@ export const extractSkillset = (payload) => {
     return [];
   }
 
-  // Also check top_roles nested arrays
-  if (Array.isArray(payload.top_roles)) {
-    let allSkills = [];
-    payload.top_roles.forEach(role => {
-      if (Array.isArray(role.skills)) {
-        allSkills = allSkills.concat(role.skills);
-      }
-      if (Array.isArray(role.skillset)) {
-        allSkills = allSkills.concat(role.skillset);
-      }
-    });
-    if (allSkills.length > 0) {
-      return normalizeSkills(allSkills);
-    }
-  }
+  let allSkills = [];
 
+  // Check top-level candidates like 'extracted_skills'
   const candidates = [
+    payload.extracted_skills,
     payload.skillset,
     payload.skills,
     payload.owned_skills,
     payload.skills_owned,
+    payload.data?.extracted_skills,
     payload.data?.skillset,
     payload.data?.skills,
   ];
@@ -53,11 +42,33 @@ export const extractSkillset = (payload) => {
         const mapped = candidate
           .map((item) => (typeof item.skill === 'string' ? item.skill.trim() : ''))
           .filter((skill) => skill.length > 0);
-        return normalizeSkills(mapped);
+        allSkills = allSkills.concat(mapped);
+      } else {
+        allSkills = allSkills.concat(candidate);
       }
-
-      return normalizeSkills(candidate);
     }
+  }
+
+  // Check top_roles nested arrays ('user_skill' is array of objects)
+  if (Array.isArray(payload.top_roles)) {
+    payload.top_roles.forEach(role => {
+      const roleCandidates = [role.user_skill, role.skills, role.skillset];
+      roleCandidates.forEach(rc => {
+        if (Array.isArray(rc)) {
+          rc.forEach(item => {
+            if (typeof item === 'string') {
+              allSkills.push(item);
+            } else if (typeof item === 'object' && typeof item.skill === 'string') {
+              allSkills.push(item.skill);
+            }
+          });
+        }
+      });
+    });
+  }
+
+  if (allSkills.length > 0) {
+    return normalizeSkills(allSkills);
   }
 
   return [];
