@@ -18,7 +18,7 @@ export const recommendJobs = async (req, res, next) => {
 
     const { data: jobs, error } = await supabase
       .from('job_data')
-      .select('title, company')
+      .select('id, title, company, location, job_url')
       .or(orConditions)
       .limit(5);
 

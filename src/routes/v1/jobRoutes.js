@@ -49,9 +49,15 @@ const router = express.Router();
  *                       items:
  *                         type: object
  *                         properties:
+ *                           id:
+ *                             type: string
  *                           title:
  *                             type: string
  *                           company:
+ *                             type: string
+ *                           location:
+ *                             type: string
+ *                           job_url:
  *                             type: string
  *       400:
  *         description: Invalid request
