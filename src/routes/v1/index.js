@@ -5,6 +5,7 @@ import jobRoleRoutes from './jobRoleRoutes.js';
 import documentRoutes from './documentRoutes.js';
 import profileRoutes from './profileRoutes.js';
 import jobRoutes from './jobRoutes.js';
+import careerRoutes from './careerRoutes.js';
 
 const router = express.Router();
 // CHECKPOINT: RESTful API versioning for frontend integration
@@ -14,5 +15,6 @@ router.use('/', jobRoleRoutes);
 router.use('/', documentRoutes);
 router.use('/', profileRoutes);
 router.use('/', jobRoutes);
+router.use('/', careerRoutes);
 
 export default router;
