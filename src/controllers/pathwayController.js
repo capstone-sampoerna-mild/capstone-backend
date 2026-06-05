@@ -1,6 +1,19 @@
 import { InternalServerError, ValidationError } from '../utils/APIError.js';
 import { supabase } from '../utils/supabaseClient.js';
-import { resolveProfileId } from './documentController.js';
+import { resolveProfileId, extractSkillset } from './documentController.js';
+
+const getCvSkills = async (userId) => {
+  const { data, error } = await supabase
+    .from('ai_analysis_history')
+    .select('ai_output_response')
+    .eq('user_id', userId)
+    .order('created_at', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (error || !data) return [];
+  return extractSkillset(data.ai_output_response) || [];
+};
 
 /**
  * Controller untuk mengelola Pathway (Skill Checklist)
@@ -103,6 +116,67 @@ export const updatePathwaySkillStatus = async (req, res, next) => {
       throw new InternalServerError('Gagal memperbarui status skill.', error);
     }
 
+    // Jika status completed, tambahkan ke user_skillsets
+    if (status === 'completed' && data && data.user_id && data.skill_name) {
+      const userId = data.user_id;
+      const skillName = data.skill_name;
+
+      const { data: skillsetRecord, error: skillsetError } = await supabase
+        .from('user_skillsets')
+        .select('skills')
+        .eq('user_id', userId)
+        .single();
+      
+      let updatedSkills = [skillName];
+
+      if (!skillsetError && skillsetRecord && Array.isArray(skillsetRecord.skills)) {
+        const currentSkills = skillsetRecord.skills;
+        const normalizedNewSkill = skillName.trim();
+        const exists = currentSkills.some(s => typeof s === 'string' && s.toLowerCase() === normalizedNewSkill.toLowerCase());
+        
+        if (!exists) {
+          updatedSkills = [...currentSkills, normalizedNewSkill];
+          await supabase
+            .from('user_skillsets')
+            .upsert({
+              user_id: userId,
+              skills: updatedSkills,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+        }
+      } else {
+        await supabase
+            .from('user_skillsets')
+            .upsert({
+              user_id: userId,
+              skills: updatedSkills,
+              updated_at: new Date().toISOString()
+            }, { onConflict: 'user_id' });
+      }
+    } else if (status === 'pending' && data && data.user_id && data.skill_name) {
+      const userId = data.user_id;
+      const skillName = data.skill_name.trim().toLowerCase();
+
+      const { data: skillsetRecord } = await supabase
+        .from('user_skillsets')
+        .select('skills')
+        .eq('user_id', userId)
+        .single();
+      
+      if (skillsetRecord && Array.isArray(skillsetRecord.skills)) {
+        const cvSkills = await getCvSkills(userId);
+        const cvSkillsLower = cvSkills.map(s => s.toLowerCase());
+
+        if (!cvSkillsLower.includes(skillName)) {
+          const updatedSkills = skillsetRecord.skills.filter(s => typeof s === 'string' && s.toLowerCase() !== skillName);
+          await supabase
+            .from('user_skillsets')
+            .update({ skills: updatedSkills, updated_at: new Date().toISOString() })
+            .eq('user_id', userId);
+        }
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Status skill berhasil diperbarui.',
@@ -122,6 +196,12 @@ export const deletePathwaySkill = async (req, res, next) => {
       throw new ValidationError('Parameter id diperlukan.');
     }
 
+    const { data: skillData } = await supabase
+      .from('user_target_skills')
+      .select('user_id, skill_name, status')
+      .eq('id', id)
+      .single();
+
     const { error } = await supabase
       .from('user_target_skills')
       .delete()
@@ -131,9 +211,71 @@ export const deletePathwaySkill = async (req, res, next) => {
       throw new InternalServerError('Gagal menghapus skill dari pathway.', error);
     }
 
+    if (skillData && skillData.status === 'completed') {
+      const userId = skillData.user_id;
+      const skillName = skillData.skill_name.trim().toLowerCase();
+
+      const { data: skillsetRecord } = await supabase
+        .from('user_skillsets')
+        .select('skills')
+        .eq('user_id', userId)
+        .single();
+
+      if (skillsetRecord && Array.isArray(skillsetRecord.skills)) {
+        const cvSkills = await getCvSkills(userId);
+        const cvSkillsLower = cvSkills.map(s => s.toLowerCase());
+
+        if (!cvSkillsLower.includes(skillName)) {
+          const updatedSkills = skillsetRecord.skills.filter(s => typeof s === 'string' && s.toLowerCase() !== skillName);
+          await supabase
+            .from('user_skillsets')
+            .update({ skills: updatedSkills, updated_at: new Date().toISOString() })
+            .eq('user_id', userId);
+        }
+      }
+    }
+
     return res.status(200).json({
       success: true,
       message: 'Skill berhasil dihapus dari pathway.'
+    });
+  } catch (error) {
+    next(error);
+  }
+};
+
+// DELETE /api/v1/pathway/user/:userId/reset - Menghapus semua skill pathway dari seorang user
+export const resetPathwaySkills = async (req, res, next) => {
+  try {
+    const { userId } = req.params;
+
+    if (!userId) {
+      throw new ValidationError('Parameter userId diperlukan.');
+    }
+
+    const profileId = await resolveProfileId(userId);
+    if (!profileId) {
+      throw new ValidationError('User profile tidak ditemukan.');
+    }
+
+    const { error } = await supabase
+      .from('user_target_skills')
+      .delete()
+      .eq('user_id', profileId);
+
+    if (error) {
+      throw new InternalServerError('Gagal me-reset skill dari pathway.', error);
+    }
+
+    const cvSkills = await getCvSkills(profileId);
+    await supabase
+      .from('user_skillsets')
+      .update({ skills: cvSkills, updated_at: new Date().toISOString() })
+      .eq('user_id', profileId);
+
+    return res.status(200).json({
+      success: true,
+      message: 'Semua skill berhasil di-reset (dihapus) dari pathway.'
     });
   } catch (error) {
     next(error);

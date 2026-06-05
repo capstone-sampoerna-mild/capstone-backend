@@ -3,7 +3,8 @@ import {
   createPathwaySkill, 
   getPathwaySkills, 
   updatePathwaySkillStatus, 
-  deletePathwaySkill 
+  deletePathwaySkill,
+  resetPathwaySkills
 } from '../../controllers/pathwayController.js';
 
 const router = express.Router();
@@ -127,5 +128,27 @@ router.patch('/pathway/:id/status', updatePathwaySkillStatus);
  *         description: Internal server error
  */
 router.delete('/pathway/:id', deletePathwaySkill);
+
+/**
+ * @swagger
+ * /api/v1/pathway/user/{userId}/reset:
+ *   delete:
+ *     summary: Menghapus semua skill dari checklist seorang user
+ *     tags: [Pathway]
+ *     parameters:
+ *       - in: path
+ *         name: userId
+ *         required: true
+ *         schema:
+ *           type: string
+ *     responses:
+ *       200:
+ *         description: Semua skill berhasil dihapus
+ *       400:
+ *         description: Parameter userId diperlukan
+ *       500:
+ *         description: Internal server error
+ */
+router.delete('/pathway/user/:userId/reset', resetPathwaySkills);
 
 export default router;
