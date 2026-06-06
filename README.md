@@ -1,210 +1,176 @@
-# API Gateway Capstone Backend
+# Career Pathing & Skills Analyzer - API Gateway (Backend)
 
-Backend ini adalah API Gateway berbasis Express.js yang menjadi penghubung antara frontend dan layanan AI. Aplikasi ini mengelola request masuk, melakukan validasi ringan, meneruskan request ke FastAPI, serta mengembalikan respons yang konsisten dan aman.
+Backend ini adalah **API Gateway** berbasis Express.js yang bertugas sebagai orkestrator utama dalam ekosistem aplikasi Career Pathing. Aplikasi ini menjembatani Frontend dengan layanan AI (FastAPI) dan Database relasional (Supabase PostgreSQL), sekaligus menangani proses autentikasi (Firebase Auth).
 
-## Ringkasan Peran
+## ✨ Fitur-Fitur Sistem
 
-- Pintu masuk utama dari frontend ke ekosistem layanan AI.
-- Verifikasi login Google via Firebase ID token.
-- Proxy request ke layanan AI untuk chat stream, rekomendasi job role, dan pemrosesan dokumen PDF.
-- Menyediakan konsistensi respons dan error handling yang aman.
+Aplikasi ini telah berkembang dari sekadar proxy menjadi backend berfitur penuh dengan kapabilitas berikut:
 
-## Main Quest Checklist (Backend)
+- **Autentikasi Aman:** Login menggunakan Google Sign-In (Firebase Auth) dengan pengelolaan sesi via JWT (JSON Web Token).
+- **Manajemen Profil & CV:** Memungkinkan user mengunggah CV (PDF) untuk diekstraksi informasinya (skill, edukasi, pengalaman) menggunakan AI (melalui FastAPI).
+- **Rekomendasi Karier Cerdas (AI-Powered):** Memberikan rekomendasi peran pekerjaan (job role) yang cocok berdasarkan skill yang dimiliki user.
+- **Analisis Kesenjangan Skill (Skill Gap Analysis):** Menganalisis perbedaan antara skill yang dimiliki user dengan skill yang dibutuhkan oleh suatu peran pekerjaan.
+- **Personalized Learning Pathway:** Membuat jalur pembelajaran mandiri. User dapat melihat daftar skill yang harus dipelajari dan menandainya sebagai "Selesai" (checklist).
+- **Manajemen Lowongan (Saved Jobs):** Menyimpan daftar pekerjaan atau karier yang diminati user.
+- **Riwayat Aktivitas (History):** Melacak jejak interaksi user dengan aplikasi (misal: mencari karier, menyimpan profil).
 
-- [x] Membangun RESTful API untuk mendukung aplikasi Front-End.
-- [x] RESTful API dapat menyimpan data dengan atau tanpa menggunakan database (penyimpanan dilakukan oleh layanan AI downstream).
-- [x] Membuat RESTful API dengan URI yang mengikuti standar konvensi RESTful.
-- [x] Mengintegrasikan kemampuan AI/ML sebagai fitur utama aplikasi melalui backend.
-- [x] Memastikan implementasi fitur utama berjalan stabil tanpa menyebabkan aplikasi crash.
+## ⚙️ Cara Kerja Sistem (Workflow)
 
-## Main Quest Checklist (Frontend - di luar scope backend)
+Berikut adalah urutan proses yang terjadi ketika sebuah *request* masuk ke sistem ini:
 
-- [ ] Menggunakan networking calls untuk berinteraksi dengan API pada proyek.
-- [ ] Menggunakan module bundler (seperti webpack, Vite, dan sejenisnya) untuk membangun proyek aplikasi web.
+1. **Penerimaan Request:** Request dari frontend (React/Next.js) masuk ke Express API Gateway.
+2. **Middleware Layer:** 
+   - **Security:** `helmet` melindungi HTTP headers dari celah keamanan umum.
+   - **CORS:** Mengatur origin mana yang diizinkan mengakses API (frontend).
+   - **Logging & Parsing:** Mencatat log (aktivitas request) dan mem-parsing body request yang berformat JSON atau *Multipart* (untuk file PDF).
+3. **Autentikasi (Firebase & JWT):** 
+   - Gateway menerima Firebase ID Token hasil login Google.
+   - Gateway memverifikasi token tersebut ke server Firebase Admin.
+   - Jika valid, sistem mencari/membuat data user di Supabase dan menerbitkan sesi login mandiri berupa `Access Token` & `Refresh Token` (JWT).
+4. **Pemrosesan di Controller (Bercabang):**
+   - **Data Lokal (Supabase):** Request yang berhubungan dengan *database* (seperti menyimpan profil, menyusun *career pathway*, mencentang skill yang sudah dipelajari, menyimpan loker, atau mencatat riwayat) akan diproses langsung ke Supabase PostgreSQL menggunakan library `supabase-js`.
+   - **Pemrosesan AI (FastAPI Proxy):** Request yang membutuhkan inferensi atau pemrosesan berat dari AI (seperti mengunggah dokumen CV untuk *parsing*, menghasilkan rekomendasi, atau berinteraksi dengan Chatbot secara *streaming*) akan di-*forward* (di-proxy) ke layanan AI (FastAPI) menggunakan utilitas `fastApiProxy`.
+5. **Standardisasi Respons:** Sebelum dikembalikan ke frontend, semua *response* akan melalui _middleware error handling_. Hal ini memastikan respons sukses/error memiliki format yang konsisten (`status`, `message`, `data`) serta menyembunyikan detail _error internal_ agar lebih aman.
 
-## Bukti Implementasi (Backend)
+## 🏗️ Arsitektur Tingkat Tinggi
 
-- **RESTful API untuk frontend:** Endpoint utama tersedia di [src/routes/v1/healthRoutes.js](src/routes/v1/healthRoutes.js#L1-L7), [src/routes/v1/authRoutes.js](src/routes/v1/authRoutes.js#L1-L7), [src/routes/v1/chatRoutes.js](src/routes/v1/chatRoutes.js#L1-L7), [src/routes/v1/jobRoleRoutes.js](src/routes/v1/jobRoleRoutes.js#L1-L13), dan [src/routes/v1/documentRoutes.js](src/routes/v1/documentRoutes.js#L1-L18).
-- **URI konvensi RESTful:** Versioning dan struktur path ditetapkan di [src/routes/v1/index.js](src/routes/v1/index.js#L1-L12).
-- **Integrasi AI/ML:** Gateway meneruskan request ke layanan AI lewat proxy JSON, stream, dan multipart di [src/utils/fastApiProxy.js](src/utils/fastApiProxy.js#L25-L105).
-- **Penyimpanan data tanpa DB lokal:** Dokumen diteruskan ke layanan AI untuk diproses dan disimpan melalui [src/routes/v1/documentRoutes.js](src/routes/v1/documentRoutes.js#L8-L16) dan [src/utils/fastApiProxy.js](src/utils/fastApiProxy.js#L69-L105).
-- **Stabilitas dan error handling:** Penanganan error terpusat ada di [src/middlewares/errorHandler.js](src/middlewares/errorHandler.js#L1-L27).
-
-## Arsitektur Tingkat Tinggi
-
-```
-Frontend
-  |
-  v
-Express API Gateway
-  |-- Middleware (CORS, Helmet, Logging)
-  |-- Routes (v1)
-  |-- Controllers
-  |-- Proxy ke FastAPI
-  v
-capstone-ai-service (FastAPI)
-```
-
-## Alur Request Umum
-
-1. Request masuk ke Express.
-2. Middleware berjalan: keamanan (helmet), CORS, parsing body, request logging.
-3. Route v1 menentukan controller yang sesuai.
-4. Controller melakukan validasi minimal dan menyiapkan payload.
-5. Proxy meneruskan request ke FastAPI dengan timeout terkontrol.
-6. Respons FastAPI diteruskan apa adanya.
-7. Jika terjadi error, middleware errorHandler mengembalikan pesan profesional yang aman.
-
-## Komponen Kode Penting
-
-- Entry point aplikasi: inisialisasi middleware, routes, swagger, dan error handler.
-- Router v1: mengelompokkan endpoint berdasarkan versi.
-- Controller: logika validasi dan pemetaan payload sebelum proxy.
-- Proxy util: menangani forwarding HTTP ke FastAPI (JSON, stream, multipart).
-- Middleware error: menyamarkan error internal dan menghindari bocor detail sistem.
-
-## Endpoint (v1)
-
-| Method | Path                                     | Keterangan                                    |
-| ------ | ---------------------------------------- | --------------------------------------------- |
-| GET    | /api/v1/health                           | Status server dan info runtime                |
-| POST   | /api/v1/auth/google                      | Verifikasi login Google via Firebase ID token |
-| POST   | /api/v1/chat/ai/stream                   | Proxy chat stream (SSE) ke FastAPI            |
-| POST   | /api/v1/job-role/recommend               | Rekomendasi job role (model lokal)            |
-| POST   | /api/v1/job-role/recommend/gemini        | Rekomendasi job role via Gemini               |
-| POST   | /api/v1/job-role/recommend/stream        | Stream rekomendasi job role (SSE)             |
-| POST   | /api/v1/job-role/recommend/gemini/stream | Stream rekomendasi job role via Gemini (SSE)  |
-| POST   | /api/v1/document/upload                  | Upload CV atau sertifikat PDF ke layanan AI   |
-
-## Upload Dokumen (CV dan Sertifikat)
-
-Endpoint dokumen sekarang hanya satu. Gunakan endpoint yang sama untuk CV atau sertifikat, satu file per request.
-
-Field multipart yang diterima:
-
-- file: file PDF (utama, wajib jika tidak memakai cv atau certificate)
-- cv: file PDF (opsional, gunakan salah satu saja)
-- certificate: file PDF (opsional, gunakan salah satu saja)
-- documentType: cv | certificate (opsional, untuk memberi label di frontend)
-
-Catatan: hanya satu file yang boleh dikirim dalam satu request. Jika perlu mengirim CV dan sertifikat, lakukan dua request ke endpoint yang sama.
-
-Contoh upload CV:
-
-```bash
-curl -X POST http://localhost:5000/api/v1/document/upload \
-  -F "cv=@/path/to/cv.pdf" \
-  -F "documentType=cv"
+```text
+Frontend (Client)
+      |
+      v (REST API / SSE)
++---------------------------------------------------+
+|               Express API Gateway                 |
+| - Authentication & Authorization (Firebase & JWT) |
+| - API Routing (v1)                                |
+| - Controllers (Logika Bisnis & Validasi)          |
++---------------------------------------------------+
+      |                                       |
+      | (CRUD via Supabase Client)            | (Proxy via Axios/Fetch)
+      v                                       v
++-----------------------+           +-------------------------+
+| Supabase (PostgreSQL) |           | FastAPI (AI Service)    |
+| - users, profiles     |           | - Model Rekomendasi     |
+| - careers, pathways   |           | - NLP / Chat Stream     |
+| - saved_jobs, history |           | - PDF Extractor         |
++-----------------------+           +-------------------------+
 ```
 
-Contoh upload sertifikat:
+## 📂 Daftar Lengkap API Endpoint (v1)
 
-```bash
-curl -X POST http://localhost:5000/api/v1/document/upload \
-  -F "certificate=@/path/to/certificate.pdf" \
-  -F "documentType=certificate"
-```
+Berikut adalah daftar endpoint RESTful yang tersedia di sistem ini beserta fungsinya:
 
-## Integrasi dengan capstone-ai-service
+### 1. Autentikasi (`/api/v1/auth`)
+- `POST /auth/google`: Melakukan login menggunakan Firebase ID Token. Jika user baru, sistem otomatis membuatkan profil di database. Mengembalikan token JWT untuk sesi (Access & Refresh token).
+- `POST /auth/refresh`: Memperbarui Access Token yang sudah kedaluwarsa dengan menggunakan Refresh Token.
 
-Gateway ini meneruskan request ke layanan AI sesuai konfigurasi path di environment. Untuk endpoint dokumen, target upstream adalah path FastAPI seperti `/document/predict-pdf`.
+### 2. Dokumen & CV (`/api/v1/document`)
+- `POST /document/upload`: Mengunggah file CV atau Sertifikat berbentuk PDF. File diteruskan ke AI untuk diekstraksi isi teksnya menjadi skillset, pengalaman, dan edukasi, lalu disimpan ke profil user.
+- `GET /document`: Menarik daftar riwayat dokumen yang sudah diunggah sebelumnya.
 
-Mapping utama:
+### 3. Profil Pengguna (`/api/v1/profile`)
+- `GET /profile/skillset`: Menarik data seluruh *skillset* (keahlian) yang telah tersimpan di profil pengguna (hasil dari unggahan CV atau input manual).
 
-- FASTAPI_CHAT_STREAM_PATH -> /chat-ai/chat-ai/stream
-- FASTAPI_JOB_ROLE_RECOMMEND_PATH -> /job-role/job-role/recommend
-- FASTAPI_JOB_ROLE_RECOMMEND_GEMINI_PATH -> /job-role/job-role/recommend/gemini
-- FASTAPI_JOB_ROLE_RECOMMEND_STREAM_PATH -> /job-role/job-role/recommend/stream
-- FASTAPI_JOB_ROLE_RECOMMEND_GEMINI_STREAM_PATH -> /job-role/job-role/recommend/gemini/stream
-- FASTAPI_DOCUMENT_UPLOAD_PATH -> /document/predict-pdf
+### 4. Rekomendasi Pekerjaan (*Job & Role*) (`/api/v1/job-role` & `/api/v1/jobs`)
+- `POST /job-role/recommend`: Meminta AI untuk merekomendasikan peran pekerjaan (Job Role) yang paling relevan dengan profil/skillset pengguna.
+- `POST /jobs/recommendations`: Mengambil rekomendasi postingan lowongan kerja nyata (dari database `job_data`) yang sesuai dengan *skillset* pengguna.
 
-Jika path di layanan AI berubah, sesuaikan nilai env di gateway tanpa mengubah kode.
+### 5. Peta Jalan Karier (*Career Roadmap*) (`/api/v1/career`)
+- `POST /career/roadmap`: Meminta AI membuat *learning roadmap* (peta pembelajaran) atau *skill gap analysis* dari *skill* yang dimiliki user ke *skill* target untuk sebuah peran pekerjaan spesifik.
 
-## Error Handling
+### 6. Jalur Pembelajaran (*Pathway*) (`/api/v1/pathway`)
+- `POST /pathway`: Menyimpan/menambahkan sebuah keahlian (skill) ke dalam daftar jalur pembelajaran pengguna (semacam *To-Do List* belajar).
+- `GET /pathway/:userId`: Menarik semua daftar *skill* yang masuk ke dalam jalur pembelajaran pengguna.
+- `PATCH /pathway/:id/status`: Memperbarui status suatu *skill* dalam *pathway* (misalnya dari status sedang dipelajari menjadi "Selesai/Lulus").
+- `DELETE /pathway/:id`: Menghapus suatu *skill* dari jalur pembelajaran.
+- `DELETE /pathway/user/:userId/reset`: Menghapus/mereset secara keseluruhan *pathway* milik pengguna.
 
-- Error 4xx: mengembalikan pesan validasi yang relevan.
-- Error 5xx: pesan disamarkan agar tidak membocorkan detail sistem.
+### 7. Riwayat Aktivitas (`/api/v1/history`)
+- `GET /history/progress/:userId`: Mengambil jejak historis interaksi, eksplorasi, atau *progress* belajar pengguna pada sistem ini.
 
-Contoh respons error 5xx:
+### 8. Asisten Chat AI (`/api/v1/chat`)
+- `POST /chat/ai/stream`: Endpoint untuk berkomunikasi (chat) dengan model AI sebagai konsultan karier secara *real-time* (menggunakan arsitektur *Server-Sent Events / Streaming*).
 
-```json
-{
-  "status": "error",
-  "message": "Terjadi kendala teknis di server. Silakan coba lagi nanti.",
-  "timestamp": "2024-04-08T10:30:00Z"
-}
-```
+### 9. Healthcheck (`/api/v1/health`)
+- `GET /health`: Mengecek status stabilitas server API Gateway.
 
-## Struktur Project
+Dokumentasi lengkap interaktif API (lengkap dengan skema input/output payload) tersedia di **Swagger UI** melalui rute `/api-docs`.
 
-```
-src/
-  config/          Konfigurasi environment dan swagger
-  constants/       Konstanta aplikasi
-  controllers/     Logic handler endpoint
-  middlewares/     CORS, logging, error handling
-  routes/          Definisi route API
-  schemas/         Template schema respons
-  utils/           Proxy FastAPI, formatter respons, util auth Firebase
-```
+---
 
-## Quick Start
+## 💻 Panduan Menjalankan Project (Komprehensif)
 
-1. Install dependency:
+Ikuti langkah-langkah di bawah ini untuk menjalankan server secara lokal.
 
+### 1. Persiapan Kebutuhan Sistem
+Pastikan Anda sudah menginstal:
+- **Node.js** (versi 18.x atau lebih baru)
+- **NPM** (Node Package Manager)
+
+Anda juga membutuhkan akses ke layanan pihak ketiga:
+- **Firebase Project** (Untuk autentikasi Google Sign-In)
+- **Supabase Project** (Database PostgreSQL)
+- **FastAPI Service** (Bisa dijalankan di localhost atau server eksternal)
+
+### 2. Instalasi Dependensi
+Clone repository ini dan masuk ke dalam folder, kemudian jalankan:
 ```bash
 npm install
 ```
 
-2. Siapkan env:
-
+### 3. Konfigurasi Environment (Lingkungan)
+Gandakan file template `.env.example` menjadi `.env`:
 ```bash
 cp .env.example .env
 ```
+Lalu, buka file `.env` dan lengkapi nilainya:
 
-3. Jalankan server:
+- **Server:** Atur `PORT` (default: 5000) dan `CORS_ORIGIN` (misalnya `http://localhost:3000`).
+- **Firebase:** Isi `FIREBASE_PROJECT_ID` dengan ID project Firebase Anda. (Pastikan service account credential JSON sudah disiapkan jika di-require oleh script tambahan, namun umumnya cukup project ID jika setup SDK public).
+- **JWT:** Berikan string acak untuk `JWT_SECRET` dan `JWT_REFRESH_SECRET`.
+- **Supabase:** Isi `SUPABASE_URL` dengan URL project Supabase Anda dan `SUPABASE_SERVICE_ROLE_KEY` dengan kunci rahasia *service role* (ditemukan di pengaturan API Supabase).
+- **FastAPI:** Isi `FASTAPI_BASE_URL` dan endpoint routes relevan agar proxy ke layanan AI dapat terhubung.
 
+### 4. Setup Database (Supabase)
+Backend ini mengandalkan skema database tertentu.
+1. Masuk ke dashboard project **Supabase** Anda.
+2. Buka tab **SQL Editor**.
+3. Buka file `schema.sql` (jika tersedia di root project) atau jalankan migrasi yang telah disiapkan di folder `/migrations` atau `/schema.sql`.
+4. Run query tersebut untuk membuat semua tabel (`users`, `profiles`, `careers`, `saved_jobs`, `pathways`, dll).
+
+### 5. Menjalankan Server
+Setelah konfigurasi selesai, jalankan server dalam mode *development*:
 ```bash
 npm run dev
 ```
+*(Server akan menggunakan `nodemon` sehingga merestart otomatis jika ada perubahan kode).*
 
-## Konfigurasi Environment
+Untuk mode *production*:
+```bash
+npm start
+```
 
-Variabel penting di `.env`:
+### 6. Verifikasi & Akses
+Jika server berjalan dengan benar, Anda akan melihat log di terminal:
+```text
+🚀 Server running on http://localhost:5000
+📚 API Documentation: http://localhost:5000/api-docs
+🌍 Environment: development
+```
+- **Health Check:** `http://localhost:5000/api/v1/health`
+- **Swagger Docs:** `http://localhost:5000/api-docs`
 
-- PORT=5000
-- HOST=0.0.0.0
-- NODE_ENV=development
-- API_VERSION=v1
-- CORS_ORIGIN=http://localhost:3000
-- FASTAPI_BASE_URL=http://127.0.0.1:8001
-- FASTAPI_CHAT_STREAM_PATH=/chat-ai/chat-ai/stream
-- FASTAPI_JOB_ROLE_RECOMMEND_PATH=/job-role/job-role/recommend
-- FASTAPI_JOB_ROLE_RECOMMEND_GEMINI_PATH=/job-role/job-role/recommend/gemini
-- FASTAPI_JOB_ROLE_RECOMMEND_STREAM_PATH=/job-role/job-role/recommend/stream
-- FASTAPI_JOB_ROLE_RECOMMEND_GEMINI_STREAM_PATH=/job-role/job-role/recommend/gemini/stream
-- FASTAPI_DOCUMENT_UPLOAD_PATH=/document/predict-pdf
-- FASTAPI_TIMEOUT_MS=60000
-- FIREBASE_PROJECT_ID=your-firebase-project-id
+---
 
-Catatan: repo AI saat ini memakai prefix ganda pada beberapa route (contoh /job-role/job-role/recommend). Jika FastAPI Anda memakai path yang lebih pendek (misal /job-role/recommend), cukup ubah nilai FASTAPI\_\*\_PATH di .env.
+## 🛠️ Troubleshooting Singkat
 
-## Akses
+- **Swagger tidak memuat data:** Pastikan `PORT` di URL sesuai dengan yang ada di terminal.
+- **Login Gagal / Unauthorized:** 
+  1. Pastikan `FIREBASE_PROJECT_ID` cocok.
+  2. Pastikan ID token yang dikirim client benar-benar dihasilkan oleh Firebase Auth (valid dan belum expired).
+- **Aksi Supabase Error (RLS / Permission Denied):** Gunakan `SUPABASE_SERVICE_ROLE_KEY` pada backend, **jangan** menggunakan `anon_key`, agar backend dapat mem-bypass Row Level Security.
+- **Timeout dari Layanan AI:** Cek apakah server FastAPI berjalan dan `FASTAPI_BASE_URL` di `.env` bisa diakses dari terminal Anda (misal pakai `curl`).
 
-- Swagger: http://localhost:5000/api-docs/
-- Health: http://localhost:5000/api/v1/health
+---
 
-## Script NPM
-
-- npm run dev: development (nodemon)
-- npm start: production
-
-## Troubleshooting Singkat
-
-- Swagger tidak bisa fetch: pastikan URL benar dan server berjalan.
-- Chat stream atau job role tidak merespons: cek FastAPI dan FASTAPI\_\*\_PATH.
-- Login Google gagal: pastikan FIREBASE_PROJECT_ID sesuai proyek Firebase dan token berasal dari Google Sign-In.
-
-## Lisensi
-
+## 📜 Lisensi
 ISC
