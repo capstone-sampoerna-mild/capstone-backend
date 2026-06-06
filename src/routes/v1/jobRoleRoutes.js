@@ -2,6 +2,7 @@ import express from 'express';
 import {
   recommendJobRole,
 } from '../../controllers/jobRoleController.js';
+import { authenticateJwt } from '../../middlewares/jwtAuth.js';
 
 const router = express.Router();
 /**
@@ -34,6 +35,6 @@ const router = express.Router();
  *
  */
 // CHECKPOINT: AI/ML integration for job role recommendations
-router.post('/job-role/recommend', recommendJobRole);
+router.post('/job-role/recommend', authenticateJwt, recommendJobRole);
 
 export default router;
