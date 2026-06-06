@@ -34,11 +34,26 @@ export const createPathwaySkill = async (req, res, next) => {
       throw new ValidationError('User profile tidak ditemukan untuk user_id tersebut.');
     }
 
+    // Cek apakah skill sudah di-track sebelumnya (case-insensitive)
+    const { data: existingSkills } = await supabase
+      .from('user_target_skills')
+      .select('skill_name')
+      .eq('user_id', profileId);
+      
+    if (existingSkills && existingSkills.length > 0) {
+      const isDuplicate = existingSkills.some(
+        s => s.skill_name.toLowerCase().trim() === skill_name.toLowerCase().trim()
+      );
+      if (isDuplicate) {
+        throw new ValidationError('Skill ini sudah di-track di profile kamu.');
+      }
+    }
+
     const { data, error } = await supabase
       .from('user_target_skills')
       .insert({
         user_id: profileId,
-        skill_name,
+        skill_name: skill_name.trim(),
         target_role,
         status: 'pending', // Default status
       })
