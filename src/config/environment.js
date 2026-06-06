@@ -12,6 +12,7 @@ export const config = {
     jobRoleRecommendPath:
       process.env.FASTAPI_JOB_ROLE_RECOMMEND_PATH || '/job-role/recommend',
     documentUploadPath: process.env.FASTAPI_DOCUMENT_UPLOAD_PATH || '/document/predict-pdf',
+    githubExtractPath: process.env.FASTAPI_GITHUB_EXTRACT_PATH || '/document/predict-github',
     timeoutMs: Number(process.env.FASTAPI_TIMEOUT_MS || 60000),
   },
   cors: {

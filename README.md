@@ -65,6 +65,7 @@ Berikut adalah daftar endpoint RESTful yang tersedia di sistem ini beserta fungs
 
 ### 2. Dokumen & CV (`/api/v1/document`)
 - `POST /document/upload`: Mengunggah file CV atau Sertifikat berbentuk PDF. File diteruskan ke AI untuk diekstraksi isi teksnya menjadi skillset, pengalaman, dan edukasi, lalu disimpan ke profil user.
+- `POST /document/github`: Mengekstrak skillset dari url repositori GitHub menggunakan model AI.
 - `GET /document`: Menarik daftar riwayat dokumen yang sudah diunggah sebelumnya.
 
 ### 3. Profil Pengguna (`/api/v1/profile`)

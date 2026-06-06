@@ -1,7 +1,7 @@
 import express from 'express';
 import multer from 'multer';
 
-import { getUserDocuments, uploadDocument } from '../../controllers/documentController.js';
+import { getUserDocuments, uploadDocument, extractFromGithub } from '../../controllers/documentController.js';
 import { authenticateJwt } from '../../middlewares/jwtAuth.js';
 
 const router = express.Router();
@@ -51,6 +51,36 @@ const upload = multer({
  */
 
 router.post('/document/upload', authenticateJwt, upload.single('file'), uploadDocument);
+
+/**
+ * @swagger
+ * /api/v1/document/github:
+ *   post:
+ *     summary: Extract skills from Github Repository
+ *     description: Process a Github repository URL via AI to extract skills
+ *     tags:
+ *       - Document
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               github_url:
+ *                 type: string
+ *                 description: GitHub repository URL
+ *     responses:
+ *       200:
+ *         description: Extracted skills from github repository
+ *       400:
+ *         description: Invalid request
+ *       500:
+ *         description: Internal server error
+ */
+router.post('/document/github', authenticateJwt, extractFromGithub);
 
 /**
  * @swagger

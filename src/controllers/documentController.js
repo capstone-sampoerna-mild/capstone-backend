@@ -1,7 +1,7 @@
 
 import { config } from '../config/environment.js';
 import { InternalServerError, ValidationError } from '../utils/APIError.js';
-import { proxyMultipart } from '../utils/fastApiProxy.js';
+import { proxyMultipart, proxyJson } from '../utils/fastApiProxy.js';
 import { ResponseFormatter } from '../utils/ResponseFormatter.js';
 import { supabase } from '../utils/supabaseClient.js';
 
@@ -249,6 +249,92 @@ export const uploadDocument = async (req, res, next) => {
         console.info('[uploadDocument] Skillset upserted. Skills count:', skillset.length);
       }
     },
+  });
+};
+
+export const extractFromGithub = async (req, res, next) => {
+  const firebaseUid = req.userId || req.body?.userId || req.body?.user_id;
+  const github_url = req.body?.github_url;
+
+  if (!github_url) {
+    next(new ValidationError('github_url is required'));
+    return;
+  }
+
+  if (!firebaseUid) {
+    next(new ValidationError('userId is required'));
+    return;
+  }
+
+  const userId = await resolveProfileId(firebaseUid);
+
+  if (!userId) {
+    next(new InternalServerError('Profile not found for this user'));
+    return;
+  }
+
+  console.info('[extractFromGithub] Resolved firebase_uid:', firebaseUid, '→ profile.id:', userId);
+
+  return proxyJson(req, res, next, config.fastApi.githubExtractPath, { github_url }, {
+    onResponse: async (upstreamResponse) => {
+      const fastApiStatus = upstreamResponse?.status;
+      console.info('[extractFromGithub] FastAPI responded with status:', fastApiStatus);
+
+      if (!fastApiStatus || fastApiStatus >= 400) {
+        console.error('[extractFromGithub] FastAPI error:', fastApiStatus);
+        return;
+      }
+
+      const skillset = extractSkillset(upstreamResponse?.data);
+      console.info('[extractFromGithub] Extracted skills:', skillset.length, '| from:', github_url);
+
+      let aiOutput = upstreamResponse?.data;
+      if (typeof aiOutput === 'string') {
+        try {
+          aiOutput = JSON.parse(aiOutput);
+        } catch {
+          aiOutput = { raw_response: aiOutput };
+        }
+      }
+      if (!aiOutput || typeof aiOutput !== 'object') {
+        aiOutput = {};
+      }
+
+      // Save to history
+      const { error: analysisError } = await supabase.from('ai_analysis_history').insert({
+        user_id: userId,
+        document_id: null,
+        user_prompt: github_url, // store github url as prompt
+        ai_output_response: aiOutput,
+      });
+
+      if (analysisError) {
+        console.warn('[extractFromGithub] Continuing despite analysis history save failure:', analysisError.message);
+      } else {
+        console.info('[extractFromGithub] Analysis history saved.');
+      }
+
+      // Save skillset
+      if (skillset.length === 0) {
+        console.info('[extractFromGithub] No skills extracted, skipping skillset upsert.');
+        return;
+      }
+
+      const { error: skillsetError } = await supabase.from('user_skillsets').upsert(
+        {
+          user_id: userId,
+          skills: skillset,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: 'user_id' }
+      );
+
+      if (skillsetError) {
+        console.warn('[extractFromGithub] Continuing despite skillset save failure:', skillsetError.message);
+      } else {
+        console.info('[extractFromGithub] Skillset upserted.');
+      }
+    }
   });
 };
 
